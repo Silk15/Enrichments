@@ -39,7 +39,7 @@ public class UIEnrichmentStat : ThunderBehaviour
                         gameObject.transform.localScale *= scale;
                         gameObject.name = $"Enrichment: {enrichment.id}";
                         uiEnrichments.Add(uiEnrichment);
-                        uiEnrichment.SetColor(enrichment.skillTree.color);
+                        uiEnrichment.SetColor(enrichment.primarySkillTree.color);
                     }
                     else Debug.LogError($"[Enrichments] Prefab: ({enrichment.uiPrefabAddress}) does not contain a UIEnrichment component, thus nothing will be loaded.");
                 }, enrichment.uiPrefabAddress));

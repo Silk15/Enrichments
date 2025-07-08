@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace Enrichments
@@ -9,37 +10,29 @@ namespace Enrichments
         public GameObject linePrefab;
         public int segmentCount = 128;
         public float radius = 0.2f;
-        public List<Transform> exclusionPoints;
+        public List<Vector3> exclusionPositions = new();
 
+        public Color color;
         public float gapAngle = 40f;
         private List<LineRenderer> activeLines = new();
         private Coroutine fadeCoroutine;
+        private float currentAlpha = 0f;
 
-        public void SetPoints(List<Transform> points) => exclusionPoints = points;
-
-        public void SetColor(Color color)
+        public void SetPoints(List<Vector3> positions)
         {
-            foreach (LineRenderer lineRenderer in activeLines)
-            {
-                lineRenderer.startColor = color;
-                lineRenderer.endColor = color;
-            }
-        }
-
-        public void Clear()
-        {
-            foreach (LineRenderer lineRenderer in activeLines) DestroyImmediate(lineRenderer.gameObject);
-            activeLines.Clear();
+            exclusionPositions = positions;
+            Debug.Log($"Setting {positions.Count} exclusion points on line: {gameObject.name} to, {string.Join(", ", exclusionPositions.Select(p => p.ToString()))}");
         }
 
         public void Refresh()
         {
             Clear();
             float angleStep = 360f / segmentCount;
+
             List<float> skipAngles = new();
-            foreach (var excl in exclusionPoints)
+            foreach (var pos in exclusionPositions)
             {
-                Vector3 local = transform.InverseTransformPoint(excl.position).normalized;
+                Vector3 local = transform.InverseTransformPoint(pos).normalized;
                 float angle = Mathf.Atan2(local.y, local.x) * Mathf.Rad2Deg;
                 if (angle < 0) angle += 360f;
                 skipAngles.Add(angle);
@@ -50,6 +43,7 @@ namespace Enrichments
             {
                 float angle = i * angleStep;
                 bool skip = false;
+
                 foreach (float skipAngle in skipAngles)
                 {
                     if (Mathf.Abs(Mathf.DeltaAngle(angle, skipAngle)) < gapAngle / 2f)
@@ -71,7 +65,25 @@ namespace Enrichments
                 currentSegment.Add(point);
             }
 
-            if (currentSegment.Count > 1) CreateLine(currentSegment);
+            if (currentSegment.Count > 1)
+                CreateLine(currentSegment);
+        }
+
+
+        public void SetColor(Color color)
+        {
+            this.color = color;
+            foreach (LineRenderer lineRenderer in activeLines)
+            {
+                lineRenderer.startColor = color;
+                lineRenderer.endColor = color;
+            }
+        }
+
+        public void Clear()
+        {
+            foreach (LineRenderer lineRenderer in activeLines) DestroyImmediate(lineRenderer.gameObject);
+            activeLines.Clear();
         }
 
         void CreateLine(List<Vector3> segment)
@@ -87,52 +99,72 @@ namespace Enrichments
         public void Enable(float duration = 0.5f)
         {
             if (fadeCoroutine != null) StopCoroutine(fadeCoroutine);
-            fadeCoroutine = StartCoroutine(FadeLines(0f, 1f, duration));
+            fadeCoroutine = StartCoroutine(FadeLines(1f, duration));
         }
 
         public void Disable(float duration = 0.5f)
         {
             if (fadeCoroutine != null) StopCoroutine(fadeCoroutine);
-            fadeCoroutine = StartCoroutine(FadeLines(1f, 0f, duration));
+            fadeCoroutine = StartCoroutine(FadeLines(0f, duration));
         }
 
-        IEnumerator FadeLines(float startAlpha, float endAlpha, float duration)
+        IEnumerator FadeLines(float targetAlpha, float duration)
         {
-            if (activeLines.Count == 0) yield break;
+            if (activeLines.Count == 0)
+            {
+                fadeCoroutine = null;
+                yield break;
+            }
 
+            float startAlpha = currentAlpha;
             float time = 0f;
-            List<Color> startColors = new();
-            foreach (var line in activeLines)
-                startColors.Add(line.startColor);
 
             while (time < duration)
             {
                 float t = time / duration;
-                float alpha = Mathf.Lerp(startAlpha, endAlpha, t);
-                for (int i = 0; i < activeLines.Count; i++)
+                currentAlpha = Mathf.Lerp(startAlpha, targetAlpha, t);
+                foreach (var line in activeLines)
                 {
-                    var c = startColors[i];
-                    c.a = alpha;
-                    activeLines[i].startColor = c;
-                    activeLines[i].endColor = c;
+                    if (line == null) continue;
+                    SetLineAlpha(line, currentAlpha);
                 }
                 time += Time.deltaTime;
                 yield return null;
             }
 
+            currentAlpha = targetAlpha;
 
-            for (int i = 0; i < activeLines.Count; i++)
+            foreach (var line in activeLines)
             {
-                var c = startColors[i];
-                c.a = endAlpha;
-                activeLines[i].startColor = c;
-                activeLines[i].endColor = c;
-
-                if (Mathf.Approximately(endAlpha, 0f))
-                    Destroy(activeLines[i].gameObject);
+                if (line == null) continue;
+                SetLineAlpha(line, currentAlpha);
+                if (Mathf.Approximately(currentAlpha, 0f))
+                    Destroy(line.gameObject);
             }
-            if (Mathf.Approximately(endAlpha, 0f))
+
+            if (Mathf.Approximately(currentAlpha, 0f))
                 activeLines.Clear();
+
+            fadeCoroutine = null;
         }
+        
+        void SetLineAlpha(LineRenderer line, float alpha)
+        {
+            Color start = line.startColor;
+            Color end = line.endColor;
+            start.a = end.a = alpha;
+            line.startColor = start;
+            line.endColor = end;
+        }
+
+        void SetLineAlpha(float alpha)
+        {
+            foreach (var line in activeLines)
+            {
+                if (line == null) continue;
+                SetLineAlpha(line, alpha);
+            }
+        }
+
     }
 }

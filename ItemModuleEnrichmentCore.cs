@@ -6,10 +6,10 @@ namespace Enrichments
 {
     public class ItemModuleEnrichmentCore : ItemModule
     {
+        public const string lineRendererAddress = "Silk.Prefab.Enrichments.Line";
         public string loopEffectId = "EnrichmentCoreLoop";
         public string connectEffectId = "EnrichmentCoreConnect";
         public string disconnectEffectId = "EnrichmentCoreDisconnect";
-        public string lineRendererAddress = "Silk.Prefab.Enrichments.Line";
         
         [NonSerialized]
         public EffectData loopEffectData;
@@ -30,7 +30,7 @@ namespace Enrichments
         public override void OnItemLoaded(Item item)
         {
             base.OnItemLoaded(item);
-            item.gameObject.GetOrAddComponent<EnrichmentCore>().Init(item, this);
+            item.gameObject.GetOrAddComponent<UIEnrichmentCore>().Init(item, this);
         }
     }
 }

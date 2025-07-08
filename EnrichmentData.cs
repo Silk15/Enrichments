@@ -1,8 +1,10 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using Newtonsoft.Json;
 using ThunderRoad;
 using UnityEngine;
+using UnityEngine.Serialization;
 using UnityEngine.Video;
 
 namespace Enrichments
@@ -23,10 +25,15 @@ namespace Enrichments
         public string buttonEnabledIconAddress;
         public string buttonDisabledIconAddress;
         public string orbIconAddress;
-        public string skillTreeId;
+        public string primarySkillTreeId;
+        public string secondarySkillTreeId;
+        public List<string> allowedCategories;
+        public List<string> allowedItemIds;
+        public List<ItemData.Type> allowedTypes;
         
         [NonSerialized]
-        public SkillTreeData skillTree;
+        public SkillTreeData primarySkillTree;
+        public SkillTreeData secondarySkillTree;
 
         [NonSerialized]
         public EffectData orbEffectData;
@@ -37,11 +44,21 @@ namespace Enrichments
         [NonSerialized]
         public Sprite orbIcon;
         private int videoCount;
-        
+
+        public bool IsAllowedOnItem(Item item)
+        {
+            if (allowedTypes.IsNullOrEmpty() && allowedItemIds.IsNullOrEmpty() && allowedCategories.IsNullOrEmpty()) return true;
+            if (!allowedTypes.IsNullOrEmpty() && allowedTypes.Contains(item.data.type)) return true;
+            if (!allowedItemIds.IsNullOrEmpty() && allowedItemIds.Contains(item.data.id)) return true;
+            if (!allowedCategories.IsNullOrEmpty() && allowedCategories.Contains(item.data.category)) return true;
+            return false;
+        }
+
         public override void OnCatalogRefresh()
         {
             base.OnCatalogRefresh();
-            skillTree = Catalog.GetData<SkillTreeData>(skillTreeId);
+            secondarySkillTree = Catalog.GetData<SkillTreeData>(secondarySkillTreeId);
+            primarySkillTree = Catalog.GetData<SkillTreeData>(primarySkillTreeId);
             orbEffectData = Catalog.GetData<EffectData>(orbEffectId);
             foreach (ItemData itemData in Catalog.GetDataList<ItemData>().Where(i => i.TryGetModule(out ItemModuleCrystal _)))
                 if (!itemData.TryGetModule(out ItemModuleEnrichmentCore _))
@@ -83,6 +100,8 @@ namespace Enrichments
         }
 
         public virtual void OnEnrichmentLoaded(Item item) { }
+        
+        public virtual void OnLateEnrichmentsLoaded(List<EnrichmentData> enrichments) { }
 
         public virtual void OnEnrichmentUnloaded(Item item) { }
         

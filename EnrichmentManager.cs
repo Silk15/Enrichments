@@ -95,21 +95,37 @@ public class EnrichmentManager : ThunderScript
     
     public static EnrichmentData GetEnrichment(Item item, string id) => Enrichments[item].FirstOrDefault(e => e.id == id);
 
-    public static bool TryGetEnrichment(Item item, string id, out EnrichmentData enrichments)
+    public static bool TryGetEnrichment(Item item, string id, out EnrichmentData enrichment)
     {
-        enrichments = GetEnrichment(item, id);
-        return enrichments != null;
-    }
+        enrichment = null;
 
-    public static bool TryGetEnrichments(Item item, out List<EnrichmentData> enrichments)
-    {
-        if (!Enrichments.TryGetValue(item, out enrichments))
+        if (item == null || string.IsNullOrEmpty(id))
         {
-            enrichments = new List<EnrichmentData>();
+            Debug.LogWarning($"[Enrichments] Item or id is null or empty!");
             return false;
         }
 
-        return true;
+        if (Enrichments.TryGetValue(item, out var list))
+        {
+            enrichment = list.Find(e => e.id == id);
+            return enrichment != null;
+        }
+
+        return false;
+    }
+
+
+    public static bool TryGetEnrichments(Item item, out List<EnrichmentData> enrichments)
+    {
+        enrichments = null;
+
+        if (item == null)
+        {
+            Debug.LogWarning($"[Enrichments] Item is null!");
+            return false;
+        }
+
+        return Enrichments.TryGetValue(item, out enrichments);
     }
 
     private static void Validate(Item item, out List<EnrichmentData> enrichments)
@@ -167,7 +183,6 @@ public class EnrichmentManager : ThunderScript
     {
         if (item.TryGetCustomData(out ContentCustomEnrichment contentEnrichment))
         {
-            // Blah
             var ids = new List<string>(contentEnrichment.enrichments);
             Validate(item, out var enrichments);
             for (int i = ids.Count - 1; i >= 0; i--)
@@ -188,7 +203,7 @@ public class EnrichmentManager : ThunderScript
                 }
                 else Debug.LogWarning($"[Enrichments] Enrichment: {id} exists in item: {item.data.id}, but does not exist as a Json. Ensure your mod has a manifest and that the enrichment is valid.");
             }
-
+            foreach (EnrichmentData enrichmentData in enrichments) enrichmentData.OnLateEnrichmentsLoaded(enrichments);
             string slot = item.holder != null ? $"from slot: {item.holder}" : "";
             Debug.Log($"[{item.data.id}] Loaded item enrichments{slot}:\n- " + string.Join("\n- ", ids));
         }

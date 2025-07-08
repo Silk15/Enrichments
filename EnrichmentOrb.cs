@@ -18,10 +18,6 @@ namespace Enrichments
         public string orbEffectId;
         public Rigidbody rigidbody;
         public Handle handle;
-        public PID pid;
-        public float kP;
-        public float kI;
-        public float kD;
         public EffectInstance orbEffectInstance;
         public EffectData orbEffectData;
         public EnrichmentData enrichmentData;
@@ -35,7 +31,7 @@ namespace Enrichments
         private EffectData disableEffectData;
         public EffectInstance enableEffectInstance;
         public EnrichmentMessage enrichmentMessage;
-        public EnrichmentCore enrichmentCore;
+        public UIEnrichmentCore uiEnrichmentCore;
         
         public event OnSpawn onSpawn;
         public event OnDespawn onDespawn;
@@ -44,7 +40,7 @@ namespace Enrichments
         
         public bool Active { get; private set; }
 
-        public static void Get(EnrichmentData enrichmentData, EnrichmentCore enrichmentCore, Vector3 position, Quaternion rotation, Action<EnrichmentOrb> onSpawn)
+        public static void Get(EnrichmentData enrichmentData, UIEnrichmentCore uiEnrichmentCore, Vector3 position, Quaternion rotation, Action<EnrichmentOrb> onSpawn)
         {
             GameManager.local.StartCoroutine(GetRoutine());
             IEnumerator GetRoutine()
@@ -52,17 +48,13 @@ namespace Enrichments
                 EnrichmentOrb enrichmentOrb;
                 if (enrichmentPrefab == null) yield return Catalog.LoadAssetCoroutine<GameObject>("Silk.Prefab.Enrichments.Orb", gameObject => { enrichmentPrefab = gameObject; }, "Silk.Prefab.Enrichments.Orb");
                 GameObject prefab = Instantiate(enrichmentPrefab, position, rotation);
-                if (prefab.TryGetComponent(out enrichmentOrb))
-                {
-                    enrichmentOrb.pid = new PID(enrichmentOrb.rigidbody, enrichmentOrb.kP, enrichmentOrb.kI, enrichmentOrb.kD);
-                    enrichmentOrb.orbEffectData = Catalog.GetData<EffectData>(enrichmentData.orbEffectId);
-                }
+                if (prefab.TryGetComponent(out enrichmentOrb)) { enrichmentOrb.orbEffectData = Catalog.GetData<EffectData>(enrichmentData.orbEffectId); }
                 else
                 {
                     Debug.Log($"[Enrichments] Failed to load prefab, gameObject does not contain an [{nameof(EnrichmentOrb)}] component..");
                     yield break;
                 }
-                enrichmentOrb.enrichmentCore = enrichmentCore;
+                enrichmentOrb.uiEnrichmentCore = uiEnrichmentCore;
                 enrichmentOrb.enableEffectData = Catalog.GetData<EffectData>(enrichmentOrb.enableEffectId);
                 enrichmentOrb.disableEffectData = Catalog.GetData<EffectData>(enrichmentOrb.disableEffectId);
                 enrichmentOrb.enableLoopEffectData = Catalog.GetData<EffectData>(enrichmentOrb.enableLoopEffectId);
@@ -70,7 +62,6 @@ namespace Enrichments
                 enrichmentOrb.rigidbody.velocity = Vector3.zero;
                 enrichmentOrb.onSpawn?.Invoke(enrichmentOrb, EventTime.OnStart);
                 enrichmentOrb.enrichmentData = enrichmentData;
-                enrichmentOrb.pid.Reset();
                 enrichmentOrb.onSpawn?.Invoke(enrichmentOrb, EventTime.OnEnd);
                 EnrichmentMessage.Create(enrichmentOrb, message =>
                 {
@@ -88,7 +79,6 @@ namespace Enrichments
             enrichmentOrb.onDespawn?.Invoke(enrichmentOrb);
             enrichmentOrb.StartCoroutine(enrichmentOrb.LerpRoutine(false, () =>
             {
-                enrichmentOrb.pid.Reset();
                 enrichmentOrb.orbEffectInstance.End();
                 enrichmentOrb.orbEffectInstance.SetParent(null);
                 enrichmentOrb.Despawn();
@@ -136,19 +126,24 @@ namespace Enrichments
         public void MoveTo(Vector3 position, Quaternion rotation, float maxForce = 1000)
         {
             if (handle.IsHanded()) return;
-            pid.MoveTo(position, rotation, maxForce);
+
+            Vector3 targetVelocity = (position - rigidbody.position) * 10f;
+            rigidbody.velocity = Vector3.ClampMagnitude(Vector3.Lerp(rigidbody.velocity, targetVelocity, 0.2f), maxForce);
+
+            Quaternion newRotation = Quaternion.RotateTowards(rigidbody.rotation, rotation, 360 * Time.fixedDeltaTime);
+            rigidbody.MoveRotation(newRotation);
         }
 
         public void Update() => spriteRenderer.transform.rotation = Quaternion.LookRotation(Player.local.head.cam.transform.forward, Vector3.up);
 
         public void Spawn()
         {
-            orbEffectInstance.SetColorImmediate(enrichmentData.skillTree.emissionColor);
+            orbEffectInstance.SetColorImmediate(enrichmentData.primarySkillTree.emissionColor);
             handle.Grabbed += OnGrabbed;
             handle.UnGrabbed += UnGrabbed;
             handle.OnHeldActionEvent += OnHeldActionEvent;
             enrichmentData.GetOrbIcon(sprite => spriteRenderer.sprite = sprite); 
-            enrichmentData.GetButtonIcon(EnrichmentManager.HasEnrichment(enrichmentCore.heldItem, enrichmentData.id), sprite => enrichmentMessage.buttonRenderer.sprite = sprite);
+            enrichmentData.GetButtonIcon(EnrichmentManager.HasEnrichment(uiEnrichmentCore.heldItem, enrichmentData.id), sprite => enrichmentMessage.buttonRenderer.sprite = sprite);
             enrichmentData.GetVideo(clip => enrichmentMessage.videoPlayer.clip = clip);
             enrichmentMessage.titleText.text = enrichmentData.GetName();
             enrichmentMessage.descriptionText.text = enrichmentData.GetDescription();
@@ -161,7 +156,13 @@ namespace Enrichments
                 handle.Grabbed -= OnGrabbed;
                 handle.UnGrabbed -= UnGrabbed;
                 handle.OnHeldActionEvent -= OnHeldActionEvent;
+                enrichmentMessage.Hide();
+                enrichmentMessage.transform.SetParent(null);
                 orbEffectInstance.SetColorImmediate(Color.white);
+                orbEffectInstance.SetIntensity(0f);
+                orbEffectInstance.End();
+                orbEffectInstance.Despawn();
+                orbEffectInstance.SetParent(null);
             }
         }
         
@@ -185,9 +186,9 @@ namespace Enrichments
 
         private void OnHeldActionEvent(RagdollHand ragdollHand, Interactable.Action action)
         {
-            if (action != Interactable.Action.UseStart) return;
-            bool has = EnrichmentManager.HasEnrichment(enrichmentCore.heldItem, enrichmentData.id);
-            if ((Player.characterData.inventory.GetCurrencyValue(Currency.CrystalShard) < enrichmentData.cost || EnrichmentManager.IsAtMaxEnrichments(enrichmentCore.heldItem)) && !has)
+            if (action != Interactable.Action.UseStart || !uiEnrichmentCore.heldItem) return;
+            bool has = EnrichmentManager.HasEnrichment(uiEnrichmentCore.heldItem, enrichmentData.id);
+            if ((Player.characterData.inventory.GetCurrencyValue(Currency.CrystalShard) < enrichmentData.cost || EnrichmentManager.IsAtMaxEnrichments(uiEnrichmentCore.heldItem) || !enrichmentData.IsAllowedOnItem(uiEnrichmentCore.heldItem)) && !has)
             {
                 Error();
                 return;
@@ -208,7 +209,7 @@ namespace Enrichments
                 enrichmentMessage.buyEffect.Play();
                 enableEffectData?.Spawn(transform).Play();
                 Player.characterData.inventory.AddCurrencyValue(Currency.CrystalShard, -enrichmentData.cost);
-                EnrichmentManager.AddEnrichment(enrichmentCore.heldItem, enrichmentData);
+                EnrichmentManager.AddEnrichment(uiEnrichmentCore.heldItem, enrichmentData);
             }
 
             void Refund()
@@ -216,7 +217,7 @@ namespace Enrichments
                 StartCoroutine(SpawnShards(enrichmentData.cost, false)); 
                 disableEffectData?.Spawn(transform).Play();
                 Player.characterData.inventory.AddCurrencyValue(Currency.CrystalShard, enrichmentData.cost);
-                EnrichmentManager.RemoveEnrichment(enrichmentCore.heldItem, enrichmentData.id);
+                EnrichmentManager.RemoveEnrichment(uiEnrichmentCore.heldItem, enrichmentData.id);
             }
         }
 
@@ -238,8 +239,8 @@ namespace Enrichments
                     items[j] = item;
                     item.physicBody.useGravity = false;
                     foreach (ThunderBehaviour handle in item.handles) handle.gameObject.SetActive(false);
-                    item.GetComponent<SkillTreeShard>().genericAttractionTarget = bought ? enrichmentCore.transform : Player.currentCreature.ragdoll.targetPart.transform;
-                }, !bought ? enrichmentCore.transform.position : Player.currentCreature.ragdoll.targetPart.transform.position, Quaternion.identity);
+                    item.GetComponent<SkillTreeShard>().genericAttractionTarget = bought ? uiEnrichmentCore.transform : Player.currentCreature.ragdoll.targetPart.transform;
+                }, !bought ? uiEnrichmentCore.transform.position : Player.currentCreature.ragdoll.targetPart.transform.position, Quaternion.identity);
                 yield return Yielders.ForSeconds(0.25f);
             }
         }

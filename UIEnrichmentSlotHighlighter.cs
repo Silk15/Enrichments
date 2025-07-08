@@ -29,7 +29,7 @@ public class UIEnrichmentSlotHighlighter : ThunderBehaviour
     {
         var image = highlighter.GetChildByNameRecursive("Image").GetComponent<Image>();
 
-        if (highlighter.active && GetHolderItemBySide(highlighter.side) is Item item && EnrichmentManager.HasEnrichments(item) && item.data.type != ItemData.Type.Quiver)
+        if (highlighter.active && GetHolderItemBySide(highlighter.side) is Item item && EnrichmentManager.HasEnrichments(item) && item.data.type != ItemData.Type.Quiver && item.data.slot != "Quiver")
         {
             if (!active)
             {
