@@ -1,4 +1,5 @@
 using ThunderRoad;
+using TMPro;
 using UnityEngine;
 
 namespace Enrichments
@@ -7,8 +8,7 @@ namespace Enrichments
     {
         public SpriteRenderer outlineSpriteRenderer;
         public SpriteRenderer colorSpriteRenderer;
-        
-        public void SetColor(Color color) => colorSpriteRenderer.color = color;
+
+        public void SetColor(EnrichmentData enrichmentData) => colorSpriteRenderer.color = enrichmentData.secondarySkillTreeId.IsNullOrEmptyOrWhitespace() ? enrichmentData.primarySkillTree.color : Color.Lerp(enrichmentData.primarySkillTree.color, enrichmentData.secondarySkillTree.color, 0.5f);
     }
 }
-

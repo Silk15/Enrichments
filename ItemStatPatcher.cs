@@ -1,6 +1,4 @@
 using System.Collections;
-using System.Collections.Generic;
-using System.Reflection;
 using HarmonyLib;
 using ThunderRoad;
 using UnityEngine;
@@ -16,7 +14,8 @@ namespace Enrichments
         {
             Coroutine updateCoroutine = __instance.GetField("updateStatsPageCoroutine") as Coroutine;
             if (updateCoroutine != null) yield return updateCoroutine;
-            __instance.itemTierIcon.gameObject.GetOrAddComponent<UIEnrichmentStat>().Load(__instance.itemTierIcon.transform, itemData, 0.06f, 25);
+            __instance.itemTierIcon.gameObject.GetOrAddComponent<UIEnrichmentStat>()
+                .Load(__instance.itemTierIcon.transform, itemData, 0.054f, 25);
         }
     }
 }

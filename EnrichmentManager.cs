@@ -32,9 +32,12 @@ public class EnrichmentManager : ThunderScript
 
     private void OnCreatureSpawn(Creature creature)
     {
-        if (creature.isPlayer) creature.gameObject.GetOrAddComponent<UIEnrichmentSlotHighlighter>().Load(creature);
-        creature.mana.OnImbueLoadEvent += ImbueLoad;
-        creature.mana.OnImbueUnloadEvent += ImbueUnload;
+        if (creature && creature.mana)
+        {
+            if (creature.isPlayer) creature.gameObject.GetOrAddComponent<UIEnrichmentSlotHighlighter>().Load(creature);
+            creature.mana.OnImbueLoadEvent += ImbueLoad;
+            creature.mana.OnImbueUnloadEvent += ImbueUnload;
+        }
     }
 
     private void OnCreatureDespawn(Creature creature, EventTime eventTime)
@@ -54,7 +57,7 @@ public class EnrichmentManager : ThunderScript
     public static bool IsAtMaxEnrichments(Item item)
     {
         if (!HasEnrichments(item)) return false;
-        return Enrichments[item].Count == 4;
+        return Enrichments[item].Count == item.GetOrAddCustomData<ContentCustomEnrichment>().MaxEnrichments;
     }
 
     private static void ImbueLoad(SpellCastCharge spellCastCharge, Imbue imbue)
@@ -69,7 +72,7 @@ public class EnrichmentManager : ThunderScript
                 }
                 catch (Exception e)
                 {
-                    Debug.LogError($"[Enrichments] Caught exception while loading imbue: {spellCastCharge.id} on item: {item.data.id} for enrichment: {enrichmentData.id}");
+                    Debug.LogError($"[Enrichments] Caught exception while loading imbue: {spellCastCharge.id} on item: {item.data.id} for enrichment: {enrichmentData.id}: {e.Message}");
                 }
             }
     }
@@ -86,7 +89,7 @@ public class EnrichmentManager : ThunderScript
                 }
                 catch (Exception e)
                 {
-                    Debug.LogError($"[Enrichments] Caught exception while unloading imbue: {spellCastCharge.id} on item: {item.data.id} for enrichment: {enrichmentData.id}");
+                    Debug.LogError($"[Enrichments] Caught exception while unloading imbue: {spellCastCharge.id} on item: {item.data.id} for enrichment: {enrichmentData.id}: {e.Message}");
                 }
             }
     }
@@ -152,8 +155,9 @@ public class EnrichmentManager : ThunderScript
         try
         {
             Debug.Log($"[Enrichments] Item: {item.data.id} loaded enrichment: {enrichmentData.id}");
-            enrichmentData.OnEnrichmentLoaded(item);
-            enrichments.Add(enrichmentData);
+            if (enrichmentData.Clone() is not EnrichmentData clone) return;
+            clone.OnEnrichmentLoaded(item);
+            enrichments.Add(clone);
         }
         catch (Exception e) { Debug.LogError($"[Enrichments] Caught exception while loading enrichment: {enrichmentData.id} on item: {item.data.id}. {e}"); }
     }
@@ -183,7 +187,7 @@ public class EnrichmentManager : ThunderScript
     {
         if (item.TryGetCustomData(out ContentCustomEnrichment contentEnrichment))
         {
-            var ids = new List<string>(contentEnrichment.enrichments);
+            var ids = new List<string>(contentEnrichment.Enrichments);
             Validate(item, out var enrichments);
             for (int i = ids.Count - 1; i >= 0; i--)
             {
@@ -192,8 +196,9 @@ public class EnrichmentManager : ThunderScript
                 {
                     try
                     {
-                        enrichmentData.OnEnrichmentLoaded(item);
-                        enrichments.Add(enrichmentData);
+                        if (enrichmentData.Clone() is not EnrichmentData clone) return;
+                        clone.OnEnrichmentLoaded(item);
+                        enrichments.Add( clone);
                     }
                     catch (Exception e)
                     {

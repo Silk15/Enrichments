@@ -1,10 +1,9 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using Newtonsoft.Json;
 using ThunderRoad;
 using UnityEngine;
-using UnityEngine.Serialization;
 using UnityEngine.Video;
 
 namespace Enrichments
@@ -17,7 +16,6 @@ namespace Enrichments
         public bool showInCore;
         public bool allowRefund;
         public string shardId;
-        public string orbEffectId;
         public string displayName;
         public string description;
         public string videoAddress;
@@ -36,33 +34,25 @@ namespace Enrichments
         public SkillTreeData secondarySkillTree;
 
         [NonSerialized]
-        public EffectData orbEffectData;
-
-        [NonSerialized]
         public VideoClip video;
 
         [NonSerialized]
-        public Sprite orbIcon;
         private int videoCount;
 
-        public bool IsAllowedOnItem(Item item)
-        {
-            if (allowedTypes.IsNullOrEmpty() && allowedItemIds.IsNullOrEmpty() && allowedCategories.IsNullOrEmpty()) return true;
-            if (!allowedTypes.IsNullOrEmpty() && allowedTypes.Contains(item.data.type)) return true;
-            if (!allowedItemIds.IsNullOrEmpty() && allowedItemIds.Contains(item.data.id)) return true;
-            if (!allowedCategories.IsNullOrEmpty() && allowedCategories.Contains(item.data.category)) return true;
-            return false;
-        }
+        public bool IsAllowedOnItem(Item item) => (allowedTypes.IsNullOrEmpty() || allowedTypes.Contains(item.data.type)) && (allowedItemIds.IsNullOrEmpty() || allowedItemIds.Contains(item.data.id)) && (allowedCategories.IsNullOrEmpty() || allowedCategories.Contains(item.data.category));
 
         public override void OnCatalogRefresh()
         {
             base.OnCatalogRefresh();
             secondarySkillTree = Catalog.GetData<SkillTreeData>(secondarySkillTreeId);
             primarySkillTree = Catalog.GetData<SkillTreeData>(primarySkillTreeId);
-            orbEffectData = Catalog.GetData<EffectData>(orbEffectId);
             foreach (ItemData itemData in Catalog.GetDataList<ItemData>().Where(i => i.TryGetModule(out ItemModuleCrystal _)))
-                if (!itemData.TryGetModule(out ItemModuleEnrichmentCore _))
-                    itemData.modules.Add(new ItemModuleEnrichmentCore());
+                if (!itemData.TryGetModule(out ItemModuleEnrichmentCore _)) itemData.modules.Add(new ItemModuleEnrichmentCore());
+        }
+
+        public override IEnumerator LoadAddressableAssetsCoroutine()
+        {
+            yield return GameManager.local.StartCoroutine(EnrichmentOrb.TryGeneratePools(50));
         }
 
         public void GetVideo(Action<VideoClip> onVideoLoaded)
@@ -99,13 +89,46 @@ namespace Enrichments
             Catalog.LoadAssetAsync(address, callback, id);
         }
 
-        public virtual void OnEnrichmentLoaded(Item item) { }
+        /// <summary>
+        /// Called once when this enrichment is loaded onto an item.
+        /// </summary>
+        /// <param name="item"></param>
+        public virtual void OnEnrichmentLoaded(Item item) => item.mainCollisionHandler.OnCollisionStartEvent += OnItemCollide;
         
+        /// <summary>
+        /// Called once when every enrichment has loaded on an item as a late refresh. Good for enrichments that rely on each other.
+        /// </summary>
+        /// <param name="enrichments"></param>
         public virtual void OnLateEnrichmentsLoaded(List<EnrichmentData> enrichments) { }
 
-        public virtual void OnEnrichmentUnloaded(Item item) { }
+        /// <summary>
+        /// Called whenever the enriched item collides with a surface.
+        /// </summary>
+        /// <param name="collisionInstance"></param>
+        public virtual void OnItemCollide(CollisionInstance collisionInstance) { }
+
+        /// <summary>
+        /// Called once when this enrichment is unloaded from an item.
+        /// </summary>
+        /// <param name="item"></param>
+
+        public virtual void OnEnrichmentUnloaded(Item item) => item.mainCollisionHandler.OnCollisionStartEvent -= OnItemCollide;
+        
+        /// <summary>
+        /// Called whenever the enriched item is imbued.
+        /// </summary>
+        /// <param name="item"></param>
+        /// <param name="imbue"></param>
+        /// <param name="spellCastCharge"></param>
         
         public virtual void OnItemImbued(Item item, Imbue imbue, SpellCastCharge spellCastCharge) { }
+        
+        /// <summary>
+        /// Called whenever the enriched item is unimbued.
+        /// </summary>
+        /// <param name="item"></param>
+        /// <param name="imbue"></param>
+        /// <param name="spellCastCharge"></param>
         
         public virtual void OnItemUnimbued(Item item, Imbue imbue, SpellCastCharge spellCastCharge) { }
 

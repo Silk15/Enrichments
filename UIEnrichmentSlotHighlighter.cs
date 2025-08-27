@@ -55,8 +55,7 @@ public class UIEnrichmentSlotHighlighter : ThunderBehaviour
         {
             var highlighter = side == Side.Left ? Highlighter.left : Highlighter.right;
             foreach (Item item in holder.items)
-                if (item.data.displayName == highlighter.titleText.text)
-                    return item;
+                if (item.data.displayName == highlighter.titleText.text) return item;
         }
 
         return null;

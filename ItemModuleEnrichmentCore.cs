@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using ThunderRoad;
 
 namespace Enrichments
@@ -10,13 +9,13 @@ namespace Enrichments
         public string loopEffectId = "EnrichmentCoreLoop";
         public string connectEffectId = "EnrichmentCoreConnect";
         public string disconnectEffectId = "EnrichmentCoreDisconnect";
-        
+
         [NonSerialized]
         public EffectData loopEffectData;
-        
+
         [NonSerialized]
         public EffectData connectEffectData;
-        
+
         [NonSerialized]
         public EffectData disconnectEffectData;
 
@@ -26,7 +25,7 @@ namespace Enrichments
             disconnectEffectData = Catalog.GetData<EffectData>(disconnectEffectId);
             loopEffectData = Catalog.GetData<EffectData>(loopEffectId);
         }
-        
+
         public override void OnItemLoaded(Item item)
         {
             base.OnItemLoaded(item);

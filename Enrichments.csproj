@@ -55,6 +55,9 @@
         <Reference Include="Unity.TextMeshPro">
           <HintPath>..\..\..\..\SteamLibrary\steamapps\common\Blade &amp; Sorcery\BladeAndSorcery_Data\Managed\Unity.TextMeshPro.dll</HintPath>
         </Reference>
+        <Reference Include="Unity.VisualEffectGraph.Runtime">
+          <HintPath>..\..\..\..\SteamLibrary\steamapps\common\Blade &amp; Sorcery\BladeAndSorcery_Data\Managed\Unity.VisualEffectGraph.Runtime.dll</HintPath>
+        </Reference>
         <Reference Include="UnityEngine.AnimationModule">
           <HintPath>..\..\..\..\SteamLibrary\steamapps\common\Blade &amp; Sorcery\BladeAndSorcery_Data\Managed\UnityEngine.AnimationModule.dll</HintPath>
         </Reference>
@@ -73,29 +76,30 @@
         <Reference Include="UnityEngine.UI">
           <HintPath>..\..\..\..\SteamLibrary\steamapps\common\Blade &amp; Sorcery\BladeAndSorcery_Data\Managed\UnityEngine.UI.dll</HintPath>
         </Reference>
+        <Reference Include="UnityEngine.VFXModule">
+          <HintPath>..\..\..\..\SteamLibrary\steamapps\common\Blade &amp; Sorcery\BladeAndSorcery_Data\Managed\UnityEngine.VFXModule.dll</HintPath>
+        </Reference>
         <Reference Include="UnityEngine.VideoModule">
           <HintPath>..\..\..\..\SteamLibrary\steamapps\common\Blade &amp; Sorcery\BladeAndSorcery_Data\Managed\UnityEngine.VideoModule.dll</HintPath>
         </Reference>
     </ItemGroup>
     <ItemGroup>
-        <Compile Include="Options.cs" />
-        <Compile Include="EnrichmentShockwave.cs" />
         <Compile Include="EnrichmentManager.cs" />
         <Compile Include="EnrichmentOrb.cs" />
         <Compile Include="ContentCustomEnrichment.cs" />
+        <Compile Include="Extensions.cs" />
+        <Compile Include="PID.cs" />
         <Compile Include="UIEnrichmentCore.cs" />
         <Compile Include="EnrichmentData.cs" />
         <Compile Include="EnrichmentMessage.cs" />
         <Compile Include="ExclusionLineRenderer.cs" />
-        <Compile Include="IShowable.cs" />
         <Compile Include="ItemModuleEnrichmentCore.cs" />
         <Compile Include="ItemStatPatcher.cs" />
         <Compile Include="Properties\AssemblyInfo.cs"/>
         <Compile Include="UIEnrichment.cs" />
-        <Compile Include="UIEnrichmentNode.cs" />
+        <Compile Include="UIEnrichmentTierNode.cs" />
         <Compile Include="UIEnrichmentSlotHighlighter.cs" />
         <Compile Include="UIEnrichmentStat.cs" />
-        <Compile Include="Utils.cs" />
     </ItemGroup>
     <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets"/>
     <Target Name="AfterBuild">

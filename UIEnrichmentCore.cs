@@ -2,41 +2,57 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using ThunderRoad;
+using ThunderRoad.DebugViz;
 using UnityEngine;
+using UnityEngine.VFX;
 
 namespace Enrichments;
 
-public class UIEnrichmentCore : ThunderBehaviour, IShowable
+public class UIEnrichmentCore : ThunderBehaviour
 {
-    public Item item;
-    public ItemMagnet itemMagnet;
-    public EffectInstance effectInstance;
-    public List<EnrichmentData> coreEnrichments = new();
-    public SkillTreeCrystal skillTreeCrystal;
-    public ExclusionLineRenderer coreExclusionLineRenderer;
-    public ItemModuleEnrichmentCore itemModuleEnrichmentCore;
-    public List<EnrichmentOrb> coreEnrichmentOrbs = new();
-    public List<UIEnrichmentNode> uiEnrichmentNodes = new();
-    public bool isGlowing;
-    public Action<UIEnrichmentCore> onAsyncLoadingComplete;
-    Transform orbitalTransform;
-    public GameObject follower;
-    public Item heldItem;
-    public int tier;
-    public float glowTime;
-    public float checkCooldown = 0.1f;
-    
     private const float CoreOrbOrbitRadius = 0.15f;
-    private const float NodeOrbOrbitRadius = 0.1f;
     private const float NodeOrbitRadius = 0.35f;
 
+    public List<UIEnrichmentTierNode> uiEnrichmentNodes = new();
+    public List<EnrichmentOrb> coreEnrichmentOrbs = new();
+    public List<EnrichmentData> coreEnrichments = new();
+
+    public ItemModuleEnrichmentCore itemModuleEnrichmentCore;
+    public ExclusionLineRenderer coreExclusionLineRenderer;
+    public SkillTreeCrystal skillTreeCrystal;
+    public EffectInstance effectInstance;
+    public Transform orbitalTransform;
+    public Quaternion hoverRotation;
+    public ItemMagnet itemMagnet;
+    public Vector3 hoverOrigin;
+    public GameObject follower;
+    public Item heldItem;
+    public RBPID pid;
+    public Item item;
+
+    public bool isGlowing;
+    public bool isShown;
+    public int tier;
+
+    public float bobbingFrequency = 0.25f;
+    public float bobbingAmplitude = 0.05f;
+    protected float bobbingTime;
+
     public override ManagedLoops EnabledManagedLoops => ManagedLoops.FixedUpdate | ManagedLoops.Update;
+
+    public float BobbingOffset()
+    {
+        bobbingTime += Time.fixedDeltaTime;
+        return Mathf.Sin(bobbingTime * bobbingFrequency * Mathf.PI * 2f) * bobbingAmplitude;
+    }
 
     public void Init(Item item, ItemModuleEnrichmentCore itemModuleEnrichmentCore)
     {
         this.item = item;
         this.itemModuleEnrichmentCore = itemModuleEnrichmentCore;
+        pid = new RBPID(item.physicBody.rigidBody, forceMode: ForceMode.Acceleration).Position(30f, 1f, 10f).Rotation(40f, 0f, 10f);
         follower = new GameObject("Follower");
         orbitalTransform = new GameObject("Orbital").transform;
         orbitalTransform.SetParent(follower.transform);
@@ -63,55 +79,66 @@ public class UIEnrichmentCore : ThunderBehaviour, IShowable
         itemMagnet.massMultiplier = 2f;
         itemModuleEnrichmentCore.Load();
         tier = ExtractTier(item.data.id);
-        foreach (EnrichmentData enrichmentData in Catalog.GetDataList<EnrichmentData>().Where(e => !string.IsNullOrEmpty(e.primarySkillTreeId) && e.primarySkillTreeId == skillTreeCrystal.treeName & string.IsNullOrEmpty(e.secondarySkillTreeId)))
-        {
+
+        foreach (EnrichmentData enrichmentData in Catalog.GetDataList<EnrichmentData>().Where(e => !string.IsNullOrEmpty(e.primarySkillTreeId) && e.primarySkillTreeId == skillTreeCrystal.treeName & string.IsNullOrEmpty(e.secondarySkillTreeId) && e.showInCore))
             if (tier >= enrichmentData.tier)
                 coreEnrichments.Add(enrichmentData);
-        }
-        foreach (SkillTreeData skillTreeData in Catalog.GetDataList<SkillTreeData>().Where(s => s.showInInfuser))
+
+        Catalog.LoadAssetAsync<GameObject>(ItemModuleEnrichmentCore.lineRendererAddress, line => { coreExclusionLineRenderer.linePrefab = line; }, ItemModuleEnrichmentCore.lineRendererAddress);
+
+        if (UIEnrichmentTierNode.visualEffectAsset == null)
         {
-            var enrichmentsForNode = Catalog.GetDataList<EnrichmentData>().Where(e => !string.IsNullOrEmpty(e.primarySkillTreeId) && e.primarySkillTreeId == skillTreeCrystal.treeName && !string.IsNullOrEmpty(e.secondarySkillTreeId) && e.secondarySkillTreeId == skillTreeData.id && tier >= e.tier);
-            if (!enrichmentsForNode.Any()) continue;
-            UIEnrichmentNode uiEnrichmentNode = new GameObject($"Enrichment Node: {skillTreeData.id}").AddComponent<UIEnrichmentNode>();
-            uiEnrichmentNode.transform.position = transform.position;
-            uiEnrichmentNode.transform.rotation = transform.rotation;
-            uiEnrichmentNode.Init(this, skillTreeData, enrichmentsForNode.ToList());
-            uiEnrichmentNodes.Add(uiEnrichmentNode);
-            Debug.Log($"Creating UI Enrichment Node: {uiEnrichmentNode.name}");
+            Catalog.GetData<ItemData>("CrystalBodyT1").SpawnAsync(item1 =>
+            {
+                if (item1.TryGetComponent(out SkillTreeCrystal originalCrystal))
+                {
+                    UIEnrichmentTierNode.visualEffectAsset = Instantiate(originalCrystal.GetField("linkVfx") as VisualEffect).GetComponent<VisualEffect>();
+                    item1.Despawn(0.1f);
+                }
+
+                foreach (SkillTreeData skillTreeData in Catalog.GetDataList<SkillTreeData>().Where(s => s.showInInfuser))
+                {
+                    var enrichmentsForNode = Catalog.GetDataList<EnrichmentData>().Where(e => !string.IsNullOrEmpty(e.primarySkillTreeId) && e.primarySkillTreeId == skillTreeCrystal.treeName && !string.IsNullOrEmpty(e.secondarySkillTreeId) && e.secondarySkillTreeId == skillTreeData.id && tier >= e.tier).ToList();
+                    if (enrichmentsForNode.Count == 0) continue;
+                    UIEnrichmentTierNode uiEnrichmentTierNode = new GameObject($"Enrichment Node: {skillTreeData.id}").AddComponent<UIEnrichmentTierNode>();
+                    uiEnrichmentTierNode.transform.position = transform.position;
+                    uiEnrichmentTierNode.transform.rotation = transform.rotation;
+                    uiEnrichmentTierNode.Init(this, skillTreeData, enrichmentsForNode?.ToList());
+                    uiEnrichmentNodes.Add(uiEnrichmentTierNode);
+                }
+            });
         }
-        Catalog.LoadAssetAsync<GameObject>( ItemModuleEnrichmentCore.lineRendererAddress, line =>
-        {
-            coreExclusionLineRenderer.linePrefab = line; 
-            onAsyncLoadingComplete?.Invoke(this);
-        },  ItemModuleEnrichmentCore.lineRendererAddress);
 
         item.OnHeldActionEvent -= OnHeldAction;
         item.OnHeldActionEvent += OnHeldAction;
-        itemMagnet.OnItemCatchEvent -= OnItemCatch;
-        itemMagnet.OnItemReleaseEvent -= OnItemRelease;
-        itemMagnet.OnItemCatchEvent += OnItemCatch;
-        itemMagnet.OnItemReleaseEvent += OnItemRelease;
+        item.OnDespawnEvent += OnDespawnEvent;
+    }
+
+    private void OnDespawnEvent(EventTime eventTime)
+    {
+        if (eventTime == EventTime.OnStart) Toggle(false);
     }
 
     private void OnItemCatch(Item caughtItem, EventTime time)
     {
-        if (time == EventTime.OnEnd || !isGlowing || caughtItem.data == null || string.IsNullOrEmpty(caughtItem.data.id)) return;
+        if (time == EventTime.OnEnd || !isGlowing || caughtItem.data == null || string.IsNullOrEmpty(caughtItem.data.id) && caughtItem != item || caughtItem.data.id.Contains("Crystal")) return;
         itemModuleEnrichmentCore.connectEffectData?.Spawn(transform).Play();
         heldItem = caughtItem;
         itemMagnet.transform.rotation = Quaternion.LookRotation(Vector3.ProjectOnPlane(caughtItem.ForwardVector(), Vector3.up));
         item.Haptic(1f);
         caughtItem.Haptic(1f);
+        follower.transform.position = item.transform.position;
         Show();
     }
 
     private void OnItemRelease(Item caughtItem, EventTime time)
     {
-        if (time == EventTime.OnStart || !isGlowing) return;
+        if (caughtItem == null || time == EventTime.OnStart || !isGlowing && caughtItem != item || caughtItem.data.id.Contains("Crystal")) return;
         item.Haptic(1f);
         caughtItem.Haptic(1f);
         heldItem = null;
         itemModuleEnrichmentCore.disconnectEffectData.Spawn(transform).Play();
-        Hide();
+        Toggle(false);
     }
 
     public void OnHeldAction(RagdollHand hand, Handle handle, Interactable.Action action)
@@ -122,8 +149,10 @@ public class UIEnrichmentCore : ThunderBehaviour, IShowable
                 Toggle(true);
                 break;
             case Interactable.Action.AlternateUseStop:
-            case Interactable.Action.Ungrab:
                 Toggle(false);
+                break;
+            case Interactable.Action.Ungrab or Interactable.Action.Grab:
+                hoverOrigin = item.transform.position;
                 break;
         }
     }
@@ -132,7 +161,6 @@ public class UIEnrichmentCore : ThunderBehaviour, IShowable
     {
         base.ManagedUpdate();
         if (!isGlowing || !itemMagnet || !Player.local) return;
-
         itemMagnet.transform.position = Vector3.Slerp(itemMagnet.transform.position, transform.position + Vector3.up * 0.35f, Time.deltaTime * 10f);
         follower.transform.position = Vector3.Slerp(follower.transform.position, item.transform.position, Time.deltaTime * 10f);
     }
@@ -140,7 +168,8 @@ public class UIEnrichmentCore : ThunderBehaviour, IShowable
     protected override void ManagedFixedUpdate()
     {
         base.ManagedFixedUpdate();
-        if (!isGlowing || !itemMagnet || !Player.local) return;
+        if (!isGlowing || !itemMagnet || !Player.local || !heldItem) return;
+        if (!item.IsHeldByPlayer) UpdateMove(hoverOrigin, hoverRotation);
         if (coreEnrichmentOrbs.Count > 0)
         {
             for (int i = 0; i < coreEnrichmentOrbs.Count; i++)
@@ -163,6 +192,12 @@ public class UIEnrichmentCore : ThunderBehaviour, IShowable
         }
     }
 
+    public void UpdateMove(Vector3 desiredPos, Quaternion desiredRot)
+    {
+        float bobOffset = BobbingOffset();
+        pid.Update(desiredPos + Vector3.up * bobOffset, desiredRot);
+    }
+
     public void Toggle(bool shown)
     {
         if (isGlowing == shown) return;
@@ -170,113 +205,121 @@ public class UIEnrichmentCore : ThunderBehaviour, IShowable
         isGlowing = shown;
         if (shown)
         {
-            itemMagnet.transform.position = Vector3.Slerp(itemMagnet.transform.position, transform.position + Vector3.up * 0.35f, Time.deltaTime * 10f);
+            itemMagnet.transform.position = transform.position + Vector3.up * 0.35f;
             itemMagnet.transform.rotation = Quaternion.LookRotation(Vector3.ProjectOnPlane(transform.up, Vector3.up), Vector3.up);
             itemMagnet.transform.SetParent(null);
+            itemMagnet.Unlock();
             itemMagnet.enabled = true;
             itemMagnet.trigger.enabled = true;
             effectInstance = itemModuleEnrichmentCore.loopEffectData?.Spawn(itemMagnet.transform);
             effectInstance?.Play();
+            item.SetPhysicModifier(this, 0f);
+            itemMagnet.OnItemCatchEvent -= OnItemCatch;
+            itemMagnet.OnItemReleaseEvent -= OnItemRelease;
+            itemMagnet.OnItemCatchEvent += OnItemCatch;
+            itemMagnet.OnItemReleaseEvent += OnItemRelease;
         }
         else
         {
+            if (heldItem != null && itemMagnet.capturedItems.Count > 0)
+                itemMagnet.ReleaseItem(itemMagnet.capturedItems.FirstOrDefault(c => c.item == heldItem));
             effectInstance.SetParent(null);
-            effectInstance?.End();
+            effectInstance?.Stop();
             effectInstance = null;
-            if (itemMagnet.capturedItems.Count == 0) itemModuleEnrichmentCore.disconnectEffectData?.Spawn(transform).Play();
+            if (itemMagnet.capturedItems.Count == 0)
+                itemModuleEnrichmentCore.disconnectEffectData?.Spawn(transform).Play();
             itemMagnet.enabled = false;
             itemMagnet.trigger.enabled = false;
             itemMagnet.transform.SetParent(transform);
             itemMagnet.transform.localPosition = Vector3.zero;
             itemMagnet.transform.localRotation = Quaternion.identity;
+            item.RemovePhysicModifier(this);
+            itemMagnet.OnItemCatchEvent -= OnItemCatch;
+            itemMagnet.OnItemReleaseEvent -= OnItemRelease;
             heldItem = null;
-            Hide();
+            if (isShown)
+            {
+                for (int i = 0; i < uiEnrichmentNodes.Count; i++) uiEnrichmentNodes[i].Toggle(false);
+                Hide();
+            }
+
+            foreach (UIEnrichmentTierNode node in uiEnrichmentNodes) node.Hide();
         }
     }
-    
+
     public void Show()
     {
-        ShowOrbsInternal(coreEnrichments, coreEnrichmentOrbs, coreExclusionLineRenderer, CoreOrbOrbitRadius, skillTreeCrystal.skillTreeEmissionColor, follower.transform);
-        foreach (UIEnrichmentNode uiEnrichmentNode in uiEnrichmentNodes)
-            if (uiEnrichmentNode.enrichments.Count > 0) 
-                ShowOrbsInternal(uiEnrichmentNode.enrichments, uiEnrichmentNode.enrichmentOrbs, uiEnrichmentNode.exclusionLineRenderer, NodeOrbOrbitRadius, uiEnrichmentNode.skillTreeData.emissionColor, uiEnrichmentNode.transform);
+        if (isShown) return;
+        isShown = true;
+        GameManager.local.StartCoroutine(ShowCoroutine(coreEnrichments, coreEnrichmentOrbs, coreExclusionLineRenderer, CoreOrbOrbitRadius, skillTreeCrystal.skillTreeEmissionColor, follower.transform));
     }
 
     public void Hide()
     {
-        HideOrbsInternal(coreEnrichmentOrbs, coreExclusionLineRenderer);
-        foreach (UIEnrichmentNode uiEnrichmentNode in uiEnrichmentNodes) HideOrbsInternal(uiEnrichmentNode.enrichmentOrbs, uiEnrichmentNode.exclusionLineRenderer);
+        if (!isShown) return;
+        isShown = false;
+        for (int i = 0; i < uiEnrichmentNodes.Count; i++) uiEnrichmentNodes[i].Toggle(false);
+        if (itemMagnet)
+        {
+            if (itemMagnet.capturedItems.Count == 1) itemMagnet.ReleaseItem(itemMagnet.capturedItems[0]);
+            itemMagnet.Lock();
+        }
+
+        GameManager.local.StartCoroutine(HideCoroutine(coreEnrichmentOrbs, coreExclusionLineRenderer));
     }
 
-    private void ShowOrbsInternal(List<EnrichmentData> enrichments, List<EnrichmentOrb> populateList, ExclusionLineRenderer exclusionLineRenderer, float orbitRadius, Color lineColor, Transform parentTransform)
+    public IEnumerator ShowCoroutine(List<EnrichmentData> enrichments, List<EnrichmentOrb> populateList, ExclusionLineRenderer exclusionLineRenderer, float orbitRadius, Color lineColor, Transform parentTransform)
     {
-        if (enrichments.Count <= 0) return;
-    
+        if (enrichments.Count <= 0) yield break;
         populateList.Clear();
-        List<EnrichmentOrb> orbs = new();
-        List<Vector3> exclusionPoints = new();
-        int targetCount = enrichments.Count;
-        int loadedCount = 0;
+        yield return Yielders.EndOfFrame;
 
-        for (int i = 0; i < enrichments.Count; i++)
+        List<EnrichmentData> validEnrichments = new();
+        foreach (var enrichment in enrichments)
         {
-            float angle = 360f / enrichments.Count * i * Mathf.Deg2Rad;
-            Vector3 localOffset = new Vector3(Mathf.Cos(angle), 0, Mathf.Sin(angle)) * orbitRadius;
-            Vector3 worldPos = parentTransform.TransformPoint(localOffset);
+            if (heldItem && enrichment.IsAllowedOnItem(heldItem))
+                validEnrichments.Add(enrichment);
+        }
+
+        if (validEnrichments.Count <= 0) yield break;
+
+        List<Vector3> exclusionPoints = new();
+        for (int i = 0; i < validEnrichments.Count; i++)
+        {
+            float angle = 360f / validEnrichments.Count * i * Mathf.Deg2Rad;
+            Vector3 worldPos = parentTransform.TransformPoint(new Vector3(Mathf.Cos(angle), 0, Mathf.Sin(angle)) * orbitRadius);
             exclusionPoints.Add(worldPos);
+            EnrichmentOrb.Get(validEnrichments[i], this, worldPos, Quaternion.identity, orb => populateList.Add(orb));
+            yield return Yielders.EndOfFrame;
         }
 
         exclusionLineRenderer.radius = orbitRadius;
         exclusionLineRenderer.SetPoints(exclusionPoints);
+        yield return Yielders.EndOfFrame;
         exclusionLineRenderer.Refresh();
         exclusionLineRenderer.SetColor(lineColor);
         exclusionLineRenderer.Enable();
-
-        foreach (EnrichmentData enrichmentData in enrichments)
-        {
-            int index = enrichments.IndexOf(enrichmentData);
-            float angle = 360f / enrichments.Count * index * Mathf.Deg2Rad;
-            Vector3 localOffset = new Vector3(Mathf.Cos(angle), 0, Mathf.Sin(angle)) * orbitRadius;
-            Vector3 worldPos = parentTransform.TransformPoint(localOffset);
-        
-            EnrichmentOrb.Get(enrichmentData, this, worldPos, Quaternion.identity, orb =>
-            {
-                orbs.Add(orb);
-                loadedCount++;
-                if (loadedCount == targetCount)
-                {
-                    populateList.AddRange(orbs);
-                }
-            });
-        }
     }
 
-    
-    private void HideOrbsInternal(List<EnrichmentOrb> orbListToClear, ExclusionLineRenderer lineRenderer)
+    public IEnumerator HideCoroutine(List<EnrichmentOrb> orbListToClear, ExclusionLineRenderer lineRenderer)
     {
-        if (orbListToClear?.Count == 0 || orbListToClear == null) return;
+        if (orbListToClear == null || orbListToClear.Count == 0) yield break;
 
-        foreach (var orb in orbListToClear)
-            if (orb != null) EnrichmentOrb.Release(orb);
+        for (int i = 0; i < orbListToClear.Count; i++)
+        {
+            var orb = orbListToClear[i];
+            if (orb != null) orb.Release();
+            yield return null;
+        }
 
         orbListToClear.Clear();
         lineRenderer.Disable();
     }
-    
+
     private static int ExtractTier(string source)
     {
         if (string.IsNullOrEmpty(source)) return -1;
-        for (int i = 0; i < source.Length - 1; i++)
-        {
-            if (source[i] == 'T' && char.IsDigit(source[i + 1]))
-            {
-                int j = i + 1;
-                while (j < source.Length && char.IsDigit(source[j])) j++;
-                if (int.TryParse(source.Substring(i + 1, j - i - 1), out int tier))
-                    return tier;
-            }
-        }
-
-        return -1;
+        var match = Regex.Match(source, @"T(\d+)");
+        return match.Success ? int.Parse(match.Groups[1].Value) : -1;
     }
 }

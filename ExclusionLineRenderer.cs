@@ -1,28 +1,25 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using ThunderRoad.DebugViz;
 using UnityEngine;
 
 namespace Enrichments
 {
     public class ExclusionLineRenderer : MonoBehaviour
     {
+        public List<Vector3> exclusionPositions = new();
         public GameObject linePrefab;
         public int segmentCount = 128;
         public float radius = 0.2f;
-        public List<Vector3> exclusionPositions = new();
-
-        public Color color;
         public float gapAngle = 40f;
+
         private List<LineRenderer> activeLines = new();
         private Coroutine fadeCoroutine;
         private float currentAlpha = 0f;
 
-        public void SetPoints(List<Vector3> positions)
-        {
-            exclusionPositions = positions;
-            Debug.Log($"Setting {positions.Count} exclusion points on line: {gameObject.name} to, {string.Join(", ", exclusionPositions.Select(p => p.ToString()))}");
-        }
+        public void SetPoints(List<Vector3> positions) => exclusionPositions = positions;
 
         public void Refresh()
         {
@@ -43,7 +40,7 @@ namespace Enrichments
             {
                 float angle = i * angleStep;
                 bool skip = false;
-
+                if (float.IsNaN(angle)) continue;
                 foreach (float skipAngle in skipAngles)
                 {
                     if (Mathf.Abs(Mathf.DeltaAngle(angle, skipAngle)) < gapAngle / 2f)
@@ -55,8 +52,7 @@ namespace Enrichments
 
                 if (skip)
                 {
-                    if (currentSegment.Count > 1)
-                        CreateLine(currentSegment);
+                    if (currentSegment.Count > 1) CreateLine(currentSegment);
                     currentSegment.Clear();
                     continue;
                 }
@@ -69,10 +65,8 @@ namespace Enrichments
                 CreateLine(currentSegment);
         }
 
-
         public void SetColor(Color color)
         {
-            this.color = color;
             foreach (LineRenderer lineRenderer in activeLines)
             {
                 lineRenderer.startColor = color;
@@ -128,6 +122,7 @@ namespace Enrichments
                     if (line == null) continue;
                     SetLineAlpha(line, currentAlpha);
                 }
+
                 time += Time.deltaTime;
                 yield return null;
             }
@@ -147,7 +142,7 @@ namespace Enrichments
 
             fadeCoroutine = null;
         }
-        
+
         void SetLineAlpha(LineRenderer line, float alpha)
         {
             Color start = line.startColor;
@@ -165,6 +160,5 @@ namespace Enrichments
                 SetLineAlpha(line, alpha);
             }
         }
-
     }
 }
