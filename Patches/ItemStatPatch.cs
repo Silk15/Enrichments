@@ -6,7 +6,7 @@ using UnityEngine;
 namespace Enrichments
 {
     [HarmonyPatch(typeof(UIItemStats), "UpdateStatsPage")]
-    public static class ItemStatPatcher
+    public static class ItemStatPatch
     {
         static void Postfix(UIItemStats __instance, ItemData newStatItem) => GameManager.local.StartCoroutine(WaitForStatsCoroutine(__instance, newStatItem));
 

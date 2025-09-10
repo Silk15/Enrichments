@@ -14,7 +14,7 @@ public class UIEnrichmentSlotHighlighter : ThunderBehaviour
     public void Load(Creature creature)
     {
         this.creature = creature;
-        Catalog.LoadAssetAsync<Sprite>("Silk.UI.Enrichments.DesignationIcon", sprite => { this.sprite = sprite; }, nameof(Sprite));
+        Catalog.LoadAssetAsync<Sprite>("Silk.UI.Enrichments.DesignationIcon", sprite => { this.sprite = sprite; }, "Highlighter Enrichment Icon");
     }
 
     public void Unload() => Catalog.ReleaseAsset(sprite);

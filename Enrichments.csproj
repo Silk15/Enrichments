@@ -22,6 +22,8 @@
         <DefineConstants>DEBUG;TRACE</DefineConstants>
         <ErrorReport>prompt</ErrorReport>
         <WarningLevel>4</WarningLevel>
+        <DocumentationFile>bin\Debug\$(AssemblyName).xml</DocumentationFile>
+        <NoWarn>1591</NoWarn>
     </PropertyGroup>
     <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
         <PlatformTarget>AnyCPU</PlatformTarget>
@@ -31,6 +33,8 @@
         <DefineConstants>TRACE</DefineConstants>
         <ErrorReport>prompt</ErrorReport>
         <WarningLevel>4</WarningLevel>
+        <DocumentationFile>bin\Release\$(AssemblyName).xml</DocumentationFile>
+        <NoWarn>1591</NoWarn>
     </PropertyGroup>
     <ItemGroup>
         <Reference Include="0Harmony">
@@ -84,22 +88,22 @@
         </Reference>
     </ItemGroup>
     <ItemGroup>
-        <Compile Include="EnrichmentManager.cs" />
-        <Compile Include="EnrichmentOrb.cs" />
         <Compile Include="ContentCustomEnrichment.cs" />
-        <Compile Include="Extensions.cs" />
-        <Compile Include="PID.cs" />
-        <Compile Include="UIEnrichmentCore.cs" />
         <Compile Include="EnrichmentData.cs" />
+        <Compile Include="EnrichmentManager.cs" />
         <Compile Include="EnrichmentMessage.cs" />
+        <Compile Include="EnrichmentOrb.cs" />
         <Compile Include="ExclusionLineRenderer.cs" />
+        <Compile Include="Extensions.cs" />
         <Compile Include="ItemModuleEnrichmentCore.cs" />
-        <Compile Include="ItemStatPatcher.cs" />
+        <Compile Include="Patches\ItemStatPatch.cs" />
+        <Compile Include="PID.cs" />
         <Compile Include="Properties\AssemblyInfo.cs"/>
         <Compile Include="UIEnrichment.cs" />
-        <Compile Include="UIEnrichmentTierNode.cs" />
+        <Compile Include="UIEnrichmentCore.cs" />
         <Compile Include="UIEnrichmentSlotHighlighter.cs" />
         <Compile Include="UIEnrichmentStat.cs" />
+        <Compile Include="UIEnrichmentTierNode.cs" />
     </ItemGroup>
     <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets"/>
     <Target Name="AfterBuild">
@@ -112,6 +116,10 @@
                 SourceFiles="$(TargetDir)$(TargetName).pdb"
                 DestinationFiles="$(BladeAndSorceryPath)\BladeAndSorcery_Data\StreamingAssets\Mods\$(ProjectName)\$(TargetName).pdb"
                 OverwriteReadOnlyFiles="true" />
-    </Target>
 
+        <Copy
+                SourceFiles="$(TargetDir)$(TargetName).xml"
+                DestinationFiles="$(BladeAndSorceryPath)\BladeAndSorcery_Data\StreamingAssets\Mods\$(ProjectName)\$(TargetName).xml"
+                OverwriteReadOnlyFiles="true" />
+    </Target>
 </Project>

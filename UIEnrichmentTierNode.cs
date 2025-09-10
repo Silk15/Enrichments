@@ -203,9 +203,12 @@ public class UIEnrichmentTierNode : ThunderBehaviour
 
     public static VisualEffect GetVisualEffect(SkillTreeData skillTreeData)
     {
-        if (visualEffectAsset != null) ;
-        VisualEffect visualEffect = Instantiate(visualEffectAsset).GetComponent<VisualEffect>();
-        visualEffect.SetVector4("Source Color", skillTreeData.emissionColor);
-        return visualEffect;
+        if (visualEffectAsset != null)
+        {
+            VisualEffect visualEffect = Instantiate(visualEffectAsset).GetComponent<VisualEffect>();
+            visualEffect.SetVector4("Source Color", skillTreeData.emissionColor);
+            return visualEffect;
+        }
+        return null;
     }
 }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using ThunderRoad;
 using TMPro;
 using UnityEngine;
@@ -11,6 +12,10 @@ namespace Enrichments
         [Header("UI")]
         public SpriteRenderer buttonRenderer;
         public ParticleSystem buyEffect;
+        public ParticleSystem loopingEffect;
+        
+        [Header("Buying")]
+        public TextMeshPro costText;
 
         [Header("Video")]
         public VideoPlayer videoPlayer;
@@ -33,6 +38,12 @@ namespace Enrichments
         [NonSerialized]
         public EnrichmentOrb enrichmentOrb;
 
+        [NonSerialized]
+        public Coroutine flashCoroutine;
+        
+        private ParticleSystem[] loopParticles;
+        private ParticleSystem.MinMaxGradient[] loopOriginals;
+
         public static void Create(EnrichmentOrb enrichmentOrb, Action<EnrichmentMessage> onComplete)
         {
             Catalog.LoadAssetAsync<GameObject>("Silk.Prefab.Enrichments.Message", o =>
@@ -46,11 +57,77 @@ namespace Enrichments
                 }
 
                 Debug.Log($"[Enrichments] Failed to load enrichment message on prefab: {obj.name}, there is no EnrichmentMessage component attached!");
-            }, "Silk.Prefab.Enrichments.Message");
+            }, $"Enrichment Message");
+        }
+
+        public void UpdateCost(EnrichmentOrb orb)
+        {
+            costText.text = orb.enrichmentData.cost.ToString();
+        }
+
+        private void Awake()
+        {
+            if (loopingEffect != null)
+            {
+                loopParticles = loopingEffect.GetComponentsInChildren<ParticleSystem>();
+                loopOriginals = new ParticleSystem.MinMaxGradient[loopParticles.Length];
+                for (int i = 0; i < loopParticles.Length; i++)
+                {
+                    loopOriginals[i] = loopParticles[i].colorOverLifetime.color;
+                }
+            }
+        }
+
+        public void Flash(Color color)
+        {
+            if (flashCoroutine != null)
+            {
+                StopCoroutine(flashCoroutine);
+            }
+            flashCoroutine = StartCoroutine(FlashRoutine(color));
+        }
+
+        private IEnumerator FlashRoutine(Color flashColor)
+        {
+            float duration = 0.1f;
+            float t = 0f;
+            while (t < 1f)
+            {
+                t += Time.unscaledDeltaTime / duration;
+                for (int i = 0; i < loopParticles.Length; i++)
+                {
+                    var col = loopParticles[i].colorOverLifetime;
+                    col.color = new ParticleSystem.MinMaxGradient(Color.Lerp(loopOriginals[i].colorMax, flashColor, t));
+                }
+
+                yield return null;
+            }
+
+            t = 0f;
+            while (t < 1f)
+            {
+                t += Time.unscaledDeltaTime / duration;
+                for (int i = 0; i < loopParticles.Length; i++)
+                {
+                    var col = loopParticles[i].colorOverLifetime;
+                    col.color = new ParticleSystem.MinMaxGradient(Color.Lerp(flashColor, loopOriginals[i].colorMax, t));
+                }
+
+                yield return null;
+            }
+
+            for (int i = 0; i < loopParticles.Length; i++)
+            {
+                var col = loopParticles[i].colorOverLifetime;
+                col.color = loopOriginals[i];
+            }
+
+            flashCoroutine = null;
         }
 
         public void Enable()
         {
+            UpdateCost(enrichmentOrb);
             transform.SetParent(null);
             transform.position = enrichmentOrb.transform.position;
             transform.rotation = enrichmentOrb.transform.rotation;
@@ -80,6 +157,7 @@ namespace Enrichments
                 else if (currentScale > 0.0f)
                 {
                     currentScale = Mathf.Max(0.0f, currentScale - scaleSpeed * Time.deltaTime);
+                    
                     transform.localScale = Vector3.one * currentScale;
                 }
             }

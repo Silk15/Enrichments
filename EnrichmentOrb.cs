@@ -42,11 +42,16 @@ namespace Enrichments
 
         public bool Active { get; private set; }
 
+        /// <summary>
+        /// Attempts to generate a set amount of enrichments and pool them for later use.
+        /// </summary>
+        /// <param name="count">The amount of orbs to pool.</param>
+        /// <returns></returns>
         public static IEnumerator TryGeneratePools(int count)
         {
             if (poolsLoaded) yield break;
             Stopwatch stopwatch = Stopwatch.StartNew();
-            yield return Catalog.LoadAssetCoroutine<GameObject>("Silk.Prefab.Enrichments.Orb", prefab => enrichmentPrefab = prefab, "Silk.Prefab.Enrichments.Orb");
+            yield return Catalog.LoadAssetCoroutine<GameObject>("Silk.Prefab.Enrichments.Orb", prefab => enrichmentPrefab = prefab, "Enrichment Orbs");
             if (enrichmentPrefab == null)
             {
                 Debug.LogError("[Enrichments] Failed to load enrichment prefab, please ensure this mod is installed correctly!");
@@ -58,24 +63,10 @@ namespace Enrichments
 
             for (int i = 0; i < count; i++)
             {
-                var prefab = Instantiate(enrichmentPrefab, enrichmentRoot.transform);
-                if (!prefab.TryGetComponent(out EnrichmentOrb enrichmentOrb))
-                {
-                    Debug.Log($"[Enrichments] Failed to load prefab, gameObject ({enrichmentOrb.name}) does not contain an [{nameof(EnrichmentOrb)}] component.");
-                    yield break;
-                }
-
-                enrichmentOrb.enableEffectData = Catalog.GetData<EffectData>(enrichmentOrb.enableEffectId);
-                enrichmentOrb.disableEffectData = Catalog.GetData<EffectData>(enrichmentOrb.disableEffectId);
-                enrichmentOrb.enableLoopEffectData = Catalog.GetData<EffectData>(enrichmentOrb.enableLoopEffectId);
+                EnrichmentOrb enrichmentOrb = Create();
                 enrichmentOrb.rigidbody.Sleep();
-                EnrichmentMessage.Create(enrichmentOrb, message =>
-                {
-                    enrichmentOrb.enrichmentMessage = message;
-                    enrichmentOrb.enrichmentMessage.gameObject.SetActive(false);
-                    message.transform.SetParent(enrichmentOrb.transform);
-                });
                 orbQueue.Enqueue(enrichmentOrb);
+                enrichmentOrb.transform.SetParent(enrichmentRoot.transform);
                 enrichmentOrb.gameObject.SetActive(false);
                 yield return Yielders.EndOfFrame;
             }
@@ -84,6 +75,30 @@ namespace Enrichments
             GeneratePools(count, stopwatch);
         }
 
+        /// <summary>
+        /// Instantiates and initializes an enrichment orb, does not disable or pool it.
+        /// </summary>
+        /// <returns></returns>
+        public static EnrichmentOrb Create()
+        {
+            GameObject prefab = Instantiate(enrichmentPrefab);
+            if (!prefab.TryGetComponent(out EnrichmentOrb orb))
+            {
+                Debug.Log($"[Enrichments] Failed to load prefab, gameObject ({orb.name}) does not contain an [{nameof(EnrichmentOrb)}] component.");
+                return null;
+            }
+            orb.enableEffectData = Catalog.GetData<EffectData>(orb.enableEffectId);
+            orb.disableEffectData = Catalog.GetData<EffectData>(orb.disableEffectId);
+            orb.enableLoopEffectData = Catalog.GetData<EffectData>(orb.enableLoopEffectId);
+            EnrichmentMessage.Create(orb, message =>
+            {
+                orb.enrichmentMessage = message;
+                orb.enrichmentMessage.gameObject.SetActive(false);
+                message.transform.SetParent(orb.transform);
+            });
+            return orb;
+        }
+        
         private static void GeneratePools(int count, Stopwatch stopwatch) => Debug.Log($"[Enrichments] Pooled {count} enrichment orbs in {stopwatch.Elapsed.TotalMilliseconds} ms");
 
         private static EnrichmentOrb Get(Vector3 position, Quaternion rotation)
@@ -94,7 +109,7 @@ namespace Enrichments
             else
             {
                 Debug.LogWarning("[Enrichments] No orbs left in the pool, new objects will be instantiated! This may negatively impact frames. Please consider using less enrichment mods at once if this bothers you.");
-                orb = Instantiate(enrichmentPrefab).GetComponent<EnrichmentOrb>();
+                orb = Create();
             }
 
             orb.transform.SetParent(null);
@@ -108,6 +123,14 @@ namespace Enrichments
             return orb;
         }
 
+        /// <summary>
+        /// Used to access the enrichment orb pool
+        /// </summary>
+        /// <param name="enrichmentData">The data to load this orb with.</param>
+        /// <param name="uiEnrichmentCore">The core this orb belongs to.</param>
+        /// <param name="position">The position to dequeue/instantiate the orb at.</param>
+        /// <param name="rotation">The rotation to dequeue/instantiate the orb at.</param>
+        /// <param name="onSpawn">An action for when this process is complete.</param>
         public static void Get(EnrichmentData enrichmentData, UIEnrichmentCore uiEnrichmentCore, Vector3 position, Quaternion rotation, Action<EnrichmentOrb> onSpawn)
         {
             EnrichmentOrb enrichmentOrb = Get(position, rotation);
@@ -123,6 +146,9 @@ namespace Enrichments
             onSpawn?.Invoke(enrichmentOrb);
         }
 
+        /// <summary>
+        /// Used to release an enrichment orb back into the pool. If an orb was not previously pooled, this will still function.
+        /// </summary>
         public void Release()
         {
             StartCoroutine(LerpRoutine(false, () =>
@@ -161,6 +187,12 @@ namespace Enrichments
 
         public void SetLayer(int layer) => gameObject.layer = layer;
 
+        /// <summary>
+        /// Used to smoothly update the position of this orb.
+        /// </summary>
+        /// <param name="position">The target position.</param>
+        /// <param name="rotation">The target rotation.</param>
+        /// <param name="maxForce">The maximum force value this rigidbody is allowed to move at.</param>
         public void MoveTo(Vector3 position, Quaternion rotation, float maxForce = 1000)
         {
             if (handle.IsHanded()) return;
@@ -172,7 +204,7 @@ namespace Enrichments
             rigidbody.MoveRotation(newRotation);
         }
 
-        public void Update()
+        private void Update()
         {
             if (Player.currentCreature && spriteRenderer) spriteRenderer.transform.rotation = Quaternion.LookRotation(Player.local.head.cam.transform.forward, Vector3.up);
         }
@@ -242,7 +274,11 @@ namespace Enrichments
                 else Buy();
             });
 
-            void Error() => Catalog.GetData<EffectData>("NotEnoughShards").Spawn(ragdollHand.transform).Play();
+            void Error()
+            {
+                Catalog.GetData<EffectData>("NotEnoughShards").Spawn(ragdollHand.transform).Play();
+                enrichmentMessage.Flash(Color.red);
+            }
 
             void Buy()
             {

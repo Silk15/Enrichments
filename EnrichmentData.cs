@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using HarmonyLib;
 using ThunderRoad;
 using UnityEngine;
 using UnityEngine.Video;
@@ -25,9 +26,12 @@ namespace Enrichments
         public string orbIconAddress;
         public string primarySkillTreeId;
         public string secondarySkillTreeId;
-        public List<string> allowedCategories;
-        public List<string> allowedItemIds;
-        public List<ItemData.Type> allowedTypes;
+        public FilterLogic itemFilter;
+        public List<string> itemIds;
+        public FilterLogic categoryFilter;
+        public List<string> itemCategories;
+        public FilterLogic typeFilter;
+        public List<ItemData.Type> itemTypes;
         
         [NonSerialized]
         public SkillTreeData primarySkillTree;
@@ -38,8 +42,21 @@ namespace Enrichments
 
         [NonSerialized]
         private int videoCount;
-
-        public bool IsAllowedOnItem(Item item) => (allowedTypes.IsNullOrEmpty() || allowedTypes.Contains(item.data.type)) && (allowedItemIds.IsNullOrEmpty() || allowedItemIds.Contains(item.data.id)) && (allowedCategories.IsNullOrEmpty() || allowedCategories.Contains(item.data.category));
+        
+        /// <summary>
+        /// Determines whether the specified <paramref name="item"/> can be enriched with this data type based on category, type, and id.
+        /// </summary>
+        /// <param name="item">The item to run these conditions on.</param>
+        /// <returns>
+        /// <see langword="true"/> if the item passes all filter checks; otherwise, <see langword="false"/>.
+        /// </returns>
+        public virtual bool IsAllowedOnItem(Item item)
+        {
+            bool categoryAllowed = itemCategories.IsNullOrEmpty() || (categoryFilter == FilterLogic.NoneExcept && itemCategories.Contains(item.data.category)) || (typeFilter == FilterLogic.AnyExcept && !itemCategories.Contains(item.data.category));
+            bool typeAllowed = itemTypes.IsNullOrEmpty() || (typeFilter == FilterLogic.NoneExcept && itemTypes.Contains(item.data.type)) || (typeFilter == FilterLogic.AnyExcept && !itemTypes.Contains(item.data.type));
+            bool itemAllowed = itemIds.IsNullOrEmpty() || (itemFilter == FilterLogic.NoneExcept && itemIds.Contains(item.data.id)) || (itemFilter == FilterLogic.AnyExcept && !itemIds.Contains(item.data.id));
+            return typeAllowed && itemAllowed && categoryAllowed;
+        }
 
         public override void OnCatalogRefresh()
         {
@@ -52,9 +69,14 @@ namespace Enrichments
 
         public override IEnumerator LoadAddressableAssetsCoroutine()
         {
-            yield return GameManager.local.StartCoroutine(EnrichmentOrb.TryGeneratePools(50));
+            yield return GameManager.local.StartCoroutine(EnrichmentOrb.TryGeneratePools(25));
         }
 
+        /// <summary>
+        /// Asynchronously loads (or reuses) the enrichment's associated video clip.
+        /// Increments an internal reference count so the clip is only released when all users call <see cref="ReleaseVideo"/>.
+        /// </summary>
+        /// <param name="onVideoLoaded">Callback invoked when the video is available.</param>
         public void GetVideo(Action<VideoClip> onVideoLoaded)
         {
             if (video !=null)
@@ -71,6 +93,10 @@ namespace Enrichments
             }), "Enrichment: " + id + " loading video");
         }
 
+        /// <summary>
+        /// Releases a reference to the video clip associated with this enrichment. 
+        /// The clip is only unloaded when all users have released it, to avoid recycling it while still in use.
+        /// </summary>
         public void ReleaseVideo()
         {
             --videoCount;
@@ -81,8 +107,14 @@ namespace Enrichments
             Catalog.ReleaseAsset(video);
         }
 
+        /// <summary>
+        /// Asynchronously loads the sprite used for the enrichment orb icon from addressables.
+        /// </summary>
         public void GetOrbIcon(Action<Sprite> callback) => Catalog.LoadAssetAsync(orbIconAddress, callback, id);
 
+        /// <summary>
+        /// Asynchronously loads the button icon sprite (enabled/disabled button on the UI) from addressables.
+        /// </summary>
         public void GetButtonIcon(bool enabled, Action<Sprite> callback)
         {
             string address = enabled ? buttonEnabledIconAddress : buttonDisabledIconAddress;
@@ -92,48 +124,48 @@ namespace Enrichments
         /// <summary>
         /// Called once when this enrichment is loaded onto an item.
         /// </summary>
-        /// <param name="item"></param>
+        /// <param name="item">The item enrichments were loaded onto.</param>
         public virtual void OnEnrichmentLoaded(Item item) => item.mainCollisionHandler.OnCollisionStartEvent += OnItemCollide;
         
         /// <summary>
-        /// Called once when every enrichment has loaded on an item as a late refresh. Good for enrichments that rely on each other.
+        /// Invoked after all enrichments have been loaded onto an item. 
+        /// Useful for enrichments that depend on other enrichments being present.
         /// </summary>
-        /// <param name="enrichments"></param>
+        /// <param name="enrichments">A list of all enrichments currently applied to the item.</param>
         public virtual void OnLateEnrichmentsLoaded(List<EnrichmentData> enrichments) { }
 
         /// <summary>
         /// Called whenever the enriched item collides with a surface.
         /// </summary>
-        /// <param name="collisionInstance"></param>
+        /// <param name="collisionInstance">The collisionInstance that occured at the point of contact.</param>
         public virtual void OnItemCollide(CollisionInstance collisionInstance) { }
 
         /// <summary>
         /// Called once when this enrichment is unloaded from an item.
         /// </summary>
-        /// <param name="item"></param>
-
+        /// <param name="item">The item enrichments were unloaded from.</param>
         public virtual void OnEnrichmentUnloaded(Item item) => item.mainCollisionHandler.OnCollisionStartEvent -= OnItemCollide;
         
         /// <summary>
         /// Called whenever the enriched item is imbued.
         /// </summary>
-        /// <param name="item"></param>
-        /// <param name="imbue"></param>
-        /// <param name="spellCastCharge"></param>
-        
         public virtual void OnItemImbued(Item item, Imbue imbue, SpellCastCharge spellCastCharge) { }
         
         /// <summary>
         /// Called whenever the enriched item is unimbued.
         /// </summary>
-        /// <param name="item"></param>
-        /// <param name="imbue"></param>
-        /// <param name="spellCastCharge"></param>
-        
         public virtual void OnItemUnimbued(Item item, Imbue imbue, SpellCastCharge spellCastCharge) { }
 
+        /// <summary>
+        /// Returns a localized version of the enrichment's name.
+        /// </summary>
+        /// <returns></returns>
         public string GetName() => LocalizationManager.Instance.TryGetLocalization("Enrichments", displayName);
 
+        /// <summary>
+        /// Returns a localized version of the enrichment's description.
+        /// </summary>
+        /// <returns></returns>
         public string GetDescription() => LocalizationManager.Instance.TryGetLocalization("Enrichments", description);
     }
 }

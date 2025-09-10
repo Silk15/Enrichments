@@ -21,6 +21,9 @@ namespace Enrichments
 
         public void SetPoints(List<Vector3> positions) => exclusionPositions = positions;
 
+        /// <summary>
+        /// Refreshes every segment of this renderer, and attempts to align each segment to avoid the transform's position.
+        /// </summary>
         public void Refresh()
         {
             Clear();
@@ -61,8 +64,7 @@ namespace Enrichments
                 currentSegment.Add(point);
             }
 
-            if (currentSegment.Count > 1)
-                CreateLine(currentSegment);
+            if (currentSegment.Count > 1) CreateLine(currentSegment);
         }
 
         public void SetColor(Color color)
@@ -150,15 +152,6 @@ namespace Enrichments
             start.a = end.a = alpha;
             line.startColor = start;
             line.endColor = end;
-        }
-
-        void SetLineAlpha(float alpha)
-        {
-            foreach (var line in activeLines)
-            {
-                if (line == null) continue;
-                SetLineAlpha(line, alpha);
-            }
         }
     }
 }

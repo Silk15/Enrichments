@@ -9,7 +9,42 @@ using UnityEngine.VFX;
 
 public static class Extensions
 {
+    public static T ClosestToPoint<T>(this IEnumerable<T> behaviours, Vector3 point) where T : MonoBehaviour
+    {
+        float lastDistance = Mathf.Infinity;
+        T closest = null;
+        foreach (var behaviour in behaviours)
+        {
+            float distance = Vector3.Distance(behaviour.transform.position, point);
+            if (closest == null || distance < lastDistance)
+            {
+                lastDistance = distance;
+                closest = behaviour;
+            }
+        }
+        return closest;
+    }
+
+    public static T[] AsDataArray<T>(this IEnumerable<string> data) where T : CatalogData
+    {
+        List<T> result = new List<T>();
+        foreach (string item in data) result.Add(Catalog.GetData<T>(item));
+        return result.ToArray();
+    }
+
+    public static void RunOn<T>(this T obj, Action<T> action) where T : class => action?.Invoke(obj);
+
+    public static T AtOrBelowIndex<T>(this IList<T> collection, int index)
+    {
+        if (index < 0 || collection.Count == 0) throw new IndexOutOfRangeException();
+        if (index >= collection.Count) return collection[collection.Count - 1];
+        return collection[index];
+    }
     
+    public static bool MostlyAlong(this Vector3 vec, Vector3 axis, float tolerance = 0.8f)
+    {
+        return Mathf.Abs(Vector3.Dot(vec, axis)) >= tolerance;
+    }
     public static IEnumerable<T> WhereNotNull<T>(this IEnumerable<T> source) where T : class  => source.Where(item => item != null)!;
 
     public static IEnumerable<T> WhereNotNull<T>(this IEnumerable<T?> source) where T : struct => source.Where(item => item.HasValue).Select(item => item.Value);
