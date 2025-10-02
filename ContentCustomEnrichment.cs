@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using Newtonsoft.Json;
 using ThunderRoad;
@@ -7,7 +6,9 @@ namespace Enrichments
 {
     public class ContentCustomEnrichment : ContentCustomData
     {
+        public int Version { get; set; } = 0;
         public int MaxEnrichments { get; set; } = 4;
+        public Dictionary<string, int> ValueModifiers { get; set; } = new();
         public List<string> Enrichments { get; set; } = new();
 
         [JsonIgnore]
@@ -17,11 +18,19 @@ namespace Enrichments
 
         public ContentCustomEnrichment(List<string> enrichments) => Enrichments = enrichments;
 
-        /// <summary>
-        /// Used to modify the maximum amount of enrichments an item is allowed to have. 
-        /// </summary>
-        /// <param name="maxEnrichments"></param>
-        public void SetMaxEnrichments(int maxEnrichments) => MaxEnrichments = maxEnrichments;
+        public void AddHandler(string skillId, int value)
+        {
+            if (ValueModifiers.ContainsKey(skillId)) return;
+            ValueModifiers.Add(skillId, value);
+            MaxEnrichments += value;
+        }
+        
+        public void RemoveHandler(string skillId)
+        {
+            if (!ValueModifiers.ContainsKey(skillId)) return;
+            MaxEnrichments -= ValueModifiers[skillId];
+            ValueModifiers.Remove(skillId);
+        }
 
         /// <summary>
         /// Used to save an enrichment to an item, fails if this data is at max capacity.

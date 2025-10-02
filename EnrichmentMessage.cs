@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using ThunderRoad;
+using ThunderRoad.DebugViz;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Video;
@@ -19,10 +20,15 @@ namespace Enrichments
 
         [Header("Video")]
         public VideoPlayer videoPlayer;
+        public Renderer videoRenderer;
 
         [Header("Text")]
         public TextMeshPro titleText;
         public TextMeshPro descriptionText;
+        
+        [Header("Item Values")]
+        public TextMeshPro currentText;
+        public TextMeshPro maxText;
 
         [Header("Values")]
         public float upOffset = 0.2f;
@@ -52,6 +58,7 @@ namespace Enrichments
                 if (obj.TryGetComponent(out EnrichmentMessage component))
                 {
                     component.enrichmentOrb = enrichmentOrb;
+                    component.InitializeVideoRendering();
                     onComplete?.Invoke(component);
                     return;
                 }
@@ -60,9 +67,38 @@ namespace Enrichments
             }, $"Enrichment Message");
         }
 
+        /// <summary>
+        /// We create a new render texture and material for each message so that they no longer use a shared asset, allowing multiple messages to display unique videos
+        /// </summary>
+        public void InitializeVideoRendering()
+        {
+            if (videoPlayer.targetTexture != null) return;
+
+            RenderTexture renderTexture = new RenderTexture(256, 256, 0) { name = $"EnrichmentMessageRenderTexture" };
+            videoPlayer.targetTexture = renderTexture;
+
+            videoRenderer.material = new(videoRenderer.material);
+            videoRenderer.material.mainTexture = renderTexture;
+        }
+        
         public void UpdateCost(EnrichmentOrb orb)
         {
             costText.text = orb.enrichmentData.cost.ToString();
+        }
+
+        public void UpdateValues(Item item)
+        {
+            if (item == null) return;
+            if (item.TryGetCustomData(out ContentCustomEnrichment customEnrichments))
+            {
+                currentText.text = customEnrichments.Enrichments.Count.ToString();
+                maxText.text = customEnrichments.MaxEnrichments.ToString();
+            }
+            else
+            {
+                currentText.text = "0";
+                maxText.text = "4";
+            }
         }
 
         private void Awake()
@@ -72,18 +108,14 @@ namespace Enrichments
                 loopParticles = loopingEffect.GetComponentsInChildren<ParticleSystem>();
                 loopOriginals = new ParticleSystem.MinMaxGradient[loopParticles.Length];
                 for (int i = 0; i < loopParticles.Length; i++)
-                {
                     loopOriginals[i] = loopParticles[i].colorOverLifetime.color;
-                }
             }
         }
 
         public void Flash(Color color)
         {
             if (flashCoroutine != null)
-            {
                 StopCoroutine(flashCoroutine);
-            }
             flashCoroutine = StartCoroutine(FlashRoutine(color));
         }
 
@@ -143,6 +175,8 @@ namespace Enrichments
                 Vector3 targetPos = enrichmentOrb.transform.position + Vector3.up * upOffset + (transform.position - Player.local.head.transform.position).normalized * forwardOffset;
                 Quaternion targetRot = Quaternion.LookRotation(transform.position - Player.local.head.transform.position);
 
+                VizManager.AddOrUpdateViz(this, $"message{enrichmentOrb.enrichmentData.id}", enrichmentOrb.enrichmentData.primarySkillTree.color, VizManager.VizType.Lines, new []{transform.position, targetPos});
+
                 if (isShown)
                 {
                     transform.position = Vector3.Lerp(transform.position, targetPos, Time.unscaledDeltaTime * followSpeed);
@@ -157,7 +191,6 @@ namespace Enrichments
                 else if (currentScale > 0.0f)
                 {
                     currentScale = Mathf.Max(0.0f, currentScale - scaleSpeed * Time.deltaTime);
-                    
                     transform.localScale = Vector3.one * currentScale;
                 }
             }
@@ -165,6 +198,7 @@ namespace Enrichments
 
         public void Hide()
         {
+            VizManager.ClearViz(this, $"message{enrichmentOrb.enrichmentData.id}");
             transform.SetParent(enrichmentOrb.transform);
             videoPlayer.enabled = false;
             videoPlayer.Stop();

@@ -37,73 +37,77 @@
         <NoWarn>1591</NoWarn>
     </PropertyGroup>
     <ItemGroup>
-        <Reference Include="0Harmony">
-          <HintPath>..\..\..\..\SteamLibrary\steamapps\common\Blade &amp; Sorcery\BladeAndSorcery_Data\StreamingAssets\Mods\Enrichments\0Harmony.dll</HintPath>
-        </Reference>
-        <Reference Include="IngameDebugConsole.Runtime">
-          <HintPath>..\..\..\..\SteamLibrary\steamapps\common\Blade &amp; Sorcery\BladeAndSorcery_Data\Managed\IngameDebugConsole.Runtime.dll</HintPath>
-        </Reference>
-        <Reference Include="Newtonsoft.Json">
-          <HintPath>..\..\..\..\SteamLibrary\steamapps\common\Blade &amp; Sorcery\BladeAndSorcery_Data\Managed\Newtonsoft.Json.dll</HintPath>
+        <Reference Include="Sirenix.OdinInspector.Attributes">
+          <HintPath>..\..\..\..\SteamLibrary\steamapps\common\Blade &amp; Sorcery\BladeAndSorcery_Data\Managed\Sirenix.OdinInspector.Attributes.dll</HintPath>
         </Reference>
         <Reference Include="System"/>
         <Reference Include="System.Core"/>
         <Reference Include="System.Data"/>
         <Reference Include="System.Xml"/>
+        <Reference Include="IngameDebugConsole.Runtime">
+            <HintPath>$(BladeAndSorceryPath)\BladeAndSorcery_Data\Managed\IngameDebugConsole.Runtime.dll</HintPath>
+        </Reference>
+        <Reference Include="Newtonsoft.Json">
+            <HintPath>$(BladeAndSorceryPath)\BladeAndSorcery_Data\Managed\Newtonsoft.Json.dll</HintPath>
+        </Reference>
         <Reference Include="ThunderRoad">
-          <HintPath>..\..\..\..\SteamLibrary\steamapps\common\Blade &amp; Sorcery\BladeAndSorcery_Data\Managed\ThunderRoad.dll</HintPath>
+          <HintPath>$(BladeAndSorceryPath)\BladeAndSorcery_Data\Managed\ThunderRoad.dll</HintPath>
         </Reference>
         <Reference Include="Unity.ResourceManager">
-          <HintPath>..\..\..\..\SteamLibrary\steamapps\common\Blade &amp; Sorcery\BladeAndSorcery_Data\Managed\Unity.ResourceManager.dll</HintPath>
+          <HintPath>$(BladeAndSorceryPath)\BladeAndSorcery_Data\Managed\Unity.ResourceManager.dll</HintPath>
         </Reference>
         <Reference Include="Unity.TextMeshPro">
-          <HintPath>..\..\..\..\SteamLibrary\steamapps\common\Blade &amp; Sorcery\BladeAndSorcery_Data\Managed\Unity.TextMeshPro.dll</HintPath>
+          <HintPath>$(BladeAndSorceryPath)\BladeAndSorcery_Data\Managed\Unity.TextMeshPro.dll</HintPath>
         </Reference>
         <Reference Include="Unity.VisualEffectGraph.Runtime">
-          <HintPath>..\..\..\..\SteamLibrary\steamapps\common\Blade &amp; Sorcery\BladeAndSorcery_Data\Managed\Unity.VisualEffectGraph.Runtime.dll</HintPath>
+          <HintPath>$(BladeAndSorceryPath)\BladeAndSorcery_Data\Managed\Unity.VisualEffectGraph.Runtime.dll</HintPath>
         </Reference>
         <Reference Include="UnityEngine.AnimationModule">
-          <HintPath>..\..\..\..\SteamLibrary\steamapps\common\Blade &amp; Sorcery\BladeAndSorcery_Data\Managed\UnityEngine.AnimationModule.dll</HintPath>
+          <HintPath>$(BladeAndSorceryPath)\BladeAndSorcery_Data\Managed\UnityEngine.AnimationModule.dll</HintPath>
         </Reference>
         <Reference Include="UnityEngine.AudioModule">
-          <HintPath>..\..\..\..\SteamLibrary\steamapps\common\Blade &amp; Sorcery\BladeAndSorcery_Data\Managed\UnityEngine.AudioModule.dll</HintPath>
+          <HintPath>$(BladeAndSorceryPath)\BladeAndSorcery_Data\Managed\UnityEngine.AudioModule.dll</HintPath>
         </Reference>
         <Reference Include="UnityEngine.CoreModule">
-          <HintPath>..\..\..\..\SteamLibrary\steamapps\common\Blade &amp; Sorcery\BladeAndSorcery_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
+          <HintPath>$(BladeAndSorceryPath)\BladeAndSorcery_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
         </Reference>
         <Reference Include="UnityEngine.ParticleSystemModule">
-          <HintPath>..\..\..\..\SteamLibrary\steamapps\common\Blade &amp; Sorcery\BladeAndSorcery_Data\Managed\UnityEngine.ParticleSystemModule.dll</HintPath>
+          <HintPath>$(BladeAndSorceryPath)\BladeAndSorcery_Data\Managed\UnityEngine.ParticleSystemModule.dll</HintPath>
         </Reference>
         <Reference Include="UnityEngine.PhysicsModule">
-          <HintPath>..\..\..\..\SteamLibrary\steamapps\common\Blade &amp; Sorcery\BladeAndSorcery_Data\Managed\UnityEngine.PhysicsModule.dll</HintPath>
+          <HintPath>$(BladeAndSorceryPath)\BladeAndSorcery_Data\Managed\UnityEngine.PhysicsModule.dll</HintPath>
         </Reference>
         <Reference Include="UnityEngine.UI">
-          <HintPath>..\..\..\..\SteamLibrary\steamapps\common\Blade &amp; Sorcery\BladeAndSorcery_Data\Managed\UnityEngine.UI.dll</HintPath>
+          <HintPath>$(BladeAndSorceryPath)\BladeAndSorcery_Data\Managed\UnityEngine.UI.dll</HintPath>
         </Reference>
         <Reference Include="UnityEngine.VFXModule">
-          <HintPath>..\..\..\..\SteamLibrary\steamapps\common\Blade &amp; Sorcery\BladeAndSorcery_Data\Managed\UnityEngine.VFXModule.dll</HintPath>
+          <HintPath>$(BladeAndSorceryPath)\BladeAndSorcery_Data\Managed\UnityEngine.VFXModule.dll</HintPath>
         </Reference>
         <Reference Include="UnityEngine.VideoModule">
-          <HintPath>..\..\..\..\SteamLibrary\steamapps\common\Blade &amp; Sorcery\BladeAndSorcery_Data\Managed\UnityEngine.VideoModule.dll</HintPath>
+          <HintPath>$(BladeAndSorceryPath)\BladeAndSorcery_Data\Managed\UnityEngine.VideoModule.dll</HintPath>
         </Reference>
     </ItemGroup>
     <ItemGroup>
         <Compile Include="ContentCustomEnrichment.cs" />
+        <Compile Include="Core\GlobalSettingsData.cs" />
+        <Compile Include="Core\VersionUpdater.cs" />
         <Compile Include="EnrichmentData.cs" />
+        <Compile Include="EnrichmentHolder.cs" />
         <Compile Include="EnrichmentManager.cs" />
         <Compile Include="EnrichmentMessage.cs" />
         <Compile Include="EnrichmentOrb.cs" />
         <Compile Include="ExclusionLineRenderer.cs" />
         <Compile Include="Extensions.cs" />
         <Compile Include="ItemModuleEnrichmentCore.cs" />
-        <Compile Include="Patches\ItemStatPatch.cs" />
         <Compile Include="PID.cs" />
         <Compile Include="Properties\AssemblyInfo.cs"/>
+        <Compile Include="SkillTreeCrystalFieldExposer.cs" />
         <Compile Include="UIEnrichment.cs" />
         <Compile Include="UIEnrichmentCore.cs" />
         <Compile Include="UIEnrichmentSlotHighlighter.cs" />
         <Compile Include="UIEnrichmentStat.cs" />
         <Compile Include="UIEnrichmentTierNode.cs" />
+        <Compile Include="VizManager.cs" />
     </ItemGroup>
     <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets"/>
     <Target Name="AfterBuild">

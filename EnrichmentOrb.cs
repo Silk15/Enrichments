@@ -238,6 +238,7 @@ namespace Enrichments
             if (eventTime == EventTime.OnEnd)
             {
                 enrichmentMessage.Enable();
+                enrichmentMessage.UpdateValues(uiEnrichmentCore.heldItem);
                 grabAudioSource.Play();
             }
         }
@@ -272,10 +273,13 @@ namespace Enrichments
             {
                 if (has) Refund();
                 else Buy();
+                enrichmentMessage.UpdateValues(uiEnrichmentCore.heldItem);
+                foreach (EnrichmentOrb enrichmentOrb in uiEnrichmentCore.coreEnrichmentOrbs) if (enrichmentOrb.enrichmentMessage.isShown) enrichmentMessage.UpdateValues(uiEnrichmentCore.heldItem);
             });
 
             void Error()
             {
+                enrichmentMessage.UpdateValues(uiEnrichmentCore.heldItem);
                 Catalog.GetData<EffectData>("NotEnoughShards").Spawn(ragdollHand.transform).Play();
                 enrichmentMessage.Flash(Color.red);
             }
@@ -286,7 +290,7 @@ namespace Enrichments
                 enrichmentMessage.buyEffect.Play();
                 enableEffectData?.Spawn(transform).Play();
                 Player.characterData.inventory.AddCurrencyValue(Currency.CrystalShard, -enrichmentData.cost);
-                EnrichmentManager.AddEnrichment(uiEnrichmentCore.heldItem, enrichmentData);
+                EnrichmentManager.AddEnrichment(uiEnrichmentCore.heldItem, enrichmentData, true);
                 enrichmentData.GetButtonIcon(true, sprite => enrichmentMessage.buttonRenderer.sprite = sprite);
             }
 
@@ -295,7 +299,7 @@ namespace Enrichments
                 StartCoroutine(SpawnShards(enrichmentData.cost, false));
                 disableEffectData?.Spawn(transform).Play();
                 Player.characterData.inventory.AddCurrencyValue(Currency.CrystalShard, enrichmentData.cost);
-                EnrichmentManager.RemoveEnrichment(uiEnrichmentCore.heldItem, enrichmentData.id);
+                EnrichmentManager.RemoveEnrichment(uiEnrichmentCore.heldItem, enrichmentData.id, true);
                 enrichmentData.GetButtonIcon(false, sprite => enrichmentMessage.buttonRenderer.sprite = sprite);
             }
         }

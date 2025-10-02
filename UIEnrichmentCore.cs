@@ -1,12 +1,9 @@
-using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using ThunderRoad;
-using ThunderRoad.DebugViz;
 using UnityEngine;
-using UnityEngine.VFX;
 
 namespace Enrichments;
 
@@ -32,6 +29,7 @@ public class UIEnrichmentCore : ThunderBehaviour
     public RBPID pid;
     public Item item;
 
+    public bool initialized;
     public bool isGlowing;
     public bool isShown;
     public int tier;
@@ -49,31 +47,35 @@ public class UIEnrichmentCore : ThunderBehaviour
     }
 
     public void Init(Item item, ItemModuleEnrichmentCore itemModuleEnrichmentCore)
-    {
+    { 
+        if (initialized) ResetCore();
+        initialized = true;
         this.item = item;
         this.itemModuleEnrichmentCore = itemModuleEnrichmentCore;
         pid = new RBPID(item.physicBody.rigidBody, forceMode: ForceMode.Acceleration).Position(30f, 1f, 10f).Rotation(40f, 0f, 10f);
+        
         follower = new GameObject("Follower");
         orbitalTransform = new GameObject("Orbital").transform;
         orbitalTransform.SetParent(follower.transform);
         orbitalTransform.localPosition = Vector3.zero;
         orbitalTransform.localRotation = Quaternion.Euler(90, 0, 0);
+        
         follower.transform.SetPositionAndRotation(item.transform.position, Quaternion.identity);
-        coreExclusionLineRenderer = orbitalTransform.gameObject.AddComponent<ExclusionLineRenderer>();
+        coreExclusionLineRenderer = orbitalTransform.gameObject.GetOrAddComponent<ExclusionLineRenderer>();
         coreExclusionLineRenderer.Disable(0.01f);
         skillTreeCrystal = item.GetComponent<SkillTreeCrystal>();
         var gameObject = new GameObject();
-        gameObject.AddComponent<Rigidbody>().isKinematic = true;
-        var sphereCollider = gameObject.AddComponent<SphereCollider>();
+        gameObject.GetOrAddComponent<Rigidbody>().isKinematic = true;
+        var sphereCollider = gameObject.GetOrAddComponent<SphereCollider>();
         sphereCollider.radius = 0.2f;
         sphereCollider.isTrigger = true;
-        itemMagnet = gameObject.AddComponent<ItemMagnet>();
+        itemMagnet = gameObject.GetOrAddComponent<ItemMagnet>();
         itemMagnet.slots = new List<string>(new[] { "SkillTreeCrystal", "Arrow", "Throwables" });
         itemMagnet.tagFilter = FilterLogic.AnyExcept;
         itemMagnet.catchedItemIgnoreGravityPush = true;
         itemMagnet.magnetReactivateDurationOnRelease = 1f;
         itemMagnet.kinematicLock = true;
-        itemMagnet.releaseOnGrabOrTKOnly = true;
+        itemMagnet.releaseOnGrabOrTKOnly = false;
         itemMagnet.maxCount = 1;
         itemMagnet.trigger = sphereCollider;
         itemMagnet.massMultiplier = 2f;
@@ -86,34 +88,64 @@ public class UIEnrichmentCore : ThunderBehaviour
 
         Catalog.LoadAssetAsync<GameObject>(ItemModuleEnrichmentCore.lineRendererAddress, line => { coreExclusionLineRenderer.linePrefab = line; }, ItemModuleEnrichmentCore.lineRendererAddress);
 
-        if (UIEnrichmentTierNode.visualEffectAsset == null)
+        if (uiEnrichmentNodes.Count > 0) 
+            foreach (UIEnrichmentTierNode node in uiEnrichmentNodes)
+                Destroy(node);
+        
+        foreach (SkillTreeData skillTreeData in Catalog.GetDataList<SkillTreeData>().Where(s => s.showInInfuser))
         {
-            Catalog.GetData<ItemData>("CrystalBodyT1").SpawnAsync(item1 =>
-            {
-                if (item1.TryGetComponent(out SkillTreeCrystal originalCrystal))
-                {
-                    UIEnrichmentTierNode.visualEffectAsset = Instantiate(originalCrystal.GetField("linkVfx") as VisualEffect).GetComponent<VisualEffect>();
-                    item1.Despawn(0.1f);
-                }
-
-                foreach (SkillTreeData skillTreeData in Catalog.GetDataList<SkillTreeData>().Where(s => s.showInInfuser))
-                {
-                    var enrichmentsForNode = Catalog.GetDataList<EnrichmentData>().Where(e => !string.IsNullOrEmpty(e.primarySkillTreeId) && e.primarySkillTreeId == skillTreeCrystal.treeName && !string.IsNullOrEmpty(e.secondarySkillTreeId) && e.secondarySkillTreeId == skillTreeData.id && tier >= e.tier).ToList();
-                    if (enrichmentsForNode.Count == 0) continue;
-                    UIEnrichmentTierNode uiEnrichmentTierNode = new GameObject($"Enrichment Node: {skillTreeData.id}").AddComponent<UIEnrichmentTierNode>();
-                    uiEnrichmentTierNode.transform.position = transform.position;
-                    uiEnrichmentTierNode.transform.rotation = transform.rotation;
-                    uiEnrichmentTierNode.Init(this, skillTreeData, enrichmentsForNode?.ToList());
-                    uiEnrichmentNodes.Add(uiEnrichmentTierNode);
-                }
-            });
+            var enrichmentsForNode = Catalog.GetDataList<EnrichmentData>().Where(e => !string.IsNullOrEmpty(e.primarySkillTreeId) && e.primarySkillTreeId == skillTreeCrystal.treeName && !string.IsNullOrEmpty(e.secondarySkillTreeId) && e.secondarySkillTreeId == skillTreeData.id && tier >= e.tier).ToList();
+            if (enrichmentsForNode.Count == 0) continue;
+            UIEnrichmentTierNode uiEnrichmentTierNode = new GameObject($"Enrichment Node: {skillTreeData.id}").AddComponent<UIEnrichmentTierNode>();
+            uiEnrichmentTierNode.transform.position = transform.position;
+            uiEnrichmentTierNode.transform.rotation = transform.rotation;
+            uiEnrichmentTierNode.Init(this, skillTreeData, enrichmentsForNode?.ToList());
+            uiEnrichmentNodes.Add(uiEnrichmentTierNode);
         }
 
         item.OnHeldActionEvent -= OnHeldAction;
         item.OnHeldActionEvent += OnHeldAction;
         item.OnDespawnEvent += OnDespawnEvent;
     }
+    
+    public void ResetCore()
+    {
+        if (item)
+        {
+            item.OnHeldActionEvent -= OnHeldAction;
+            item.OnDespawnEvent -= OnDespawnEvent;
+        }
+        if (itemMagnet)
+        {
+            itemMagnet.OnItemCatchEvent -= OnItemCatch;
+            itemMagnet.OnItemReleaseEvent -= OnItemRelease;
+        }
+        
+        effectInstance?.SetParent(null);
+        effectInstance?.End();
+        effectInstance = null;
+        
+        foreach (var orb in coreEnrichmentOrbs) VizManager.ClearViz(this, $"orb{orb.enrichmentData.id}{skillTreeCrystal.treeName}");
+        coreEnrichmentOrbs.Clear();
+        
+        if (coreExclusionLineRenderer != null) Catalog.ReleaseAsset(coreExclusionLineRenderer);
 
+        foreach (var node in uiEnrichmentNodes)
+        {
+            node.Hide();
+            node.RemoveDelegates();
+            Destroy(node.gameObject);
+        }
+        uiEnrichmentNodes.Clear();
+        
+        if (follower) Destroy(follower);
+        follower = null;
+        orbitalTransform = null;
+
+        if (itemMagnet) Destroy(itemMagnet.gameObject);
+        itemMagnet = null;
+    }
+    
     private void OnDespawnEvent(EventTime eventTime)
     {
         if (eventTime == EventTime.OnStart) Toggle(false);
@@ -177,6 +209,7 @@ public class UIEnrichmentCore : ThunderBehaviour
                 float angle = 360f / coreEnrichmentOrbs.Count * i * Mathf.Deg2Rad;
                 Vector3 localOffset = new Vector3(Mathf.Cos(angle), 0, Mathf.Sin(angle)) * CoreOrbOrbitRadius;
                 coreEnrichmentOrbs[i].MoveTo(follower.transform.TransformPoint(localOffset), Quaternion.identity);
+                VizManager.AddOrUpdateViz(this, $"orb{coreEnrichmentOrbs[i].enrichmentData.id}{skillTreeCrystal.treeName}", coreEnrichmentOrbs[i].enrichmentData.primarySkillTree.color, VizManager.VizType.Lines, new []{follower.transform.TransformPoint(localOffset), coreEnrichmentOrbs[i].transform.position});
             }
         }
 
@@ -258,6 +291,7 @@ public class UIEnrichmentCore : ThunderBehaviour
     {
         if (!isShown) return;
         isShown = false;
+        foreach (EnrichmentOrb item in coreEnrichmentOrbs) VizManager.ClearViz(this, $"orb{item.enrichmentData.id}{skillTreeCrystal.treeName}");
         for (int i = 0; i < uiEnrichmentNodes.Count; i++) uiEnrichmentNodes[i].Toggle(false);
         if (itemMagnet)
         {

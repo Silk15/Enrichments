@@ -1,35 +1,32 @@
-using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using ThunderRoad;
 using ThunderRoad.DebugViz;
 using UnityEngine;
-using UnityEngine.Serialization;
 using UnityEngine.VFX;
 
 namespace Enrichments;
 
 public class UIEnrichmentTierNode : ThunderBehaviour
 {
-    private static readonly int Intensity = Shader.PropertyToID(nameof(Intensity));
-    public static VisualEffect visualEffectAsset;
     public List<EnrichmentOrb> enrichmentOrbs = new();
     public List<EnrichmentData> enrichments = new();
-
+    
     public ExclusionLineRenderer exclusionLineRenderer;
     public UIEnrichmentCore uiEnrichmentCore;
     public LineRenderer linkLineRenderer;
     public EffectInstance effectInstance;
     public SkillTreeData skillTreeData;
-    public VisualEffect visualEffect;
     public ItemMagnet itemMagnet;
     public Item heldCrystal;
 
     public GameObject magnetObject;
-    public string lastVizId;
     public bool isGlowing;
     public bool isShown;
     public bool vfxShown;
     public Side lastSide;
+
+    public Item fakeItem;
 
     public override ManagedLoops EnabledManagedLoops => ManagedLoops.Update | ManagedLoops.FixedUpdate;
 
@@ -55,24 +52,22 @@ public class UIEnrichmentTierNode : ThunderBehaviour
         itemMagnet.catchedItemIgnoreGravityPush = true;
         itemMagnet.magnetReactivateDurationOnRelease = 1f;
         itemMagnet.kinematicLock = true;
-        itemMagnet.releaseOnGrabOrTKOnly = true;
+        itemMagnet.releaseOnGrabOrTKOnly = false;
         itemMagnet.maxCount = 1;
         itemMagnet.trigger = sphereCollider;
         itemMagnet.massMultiplier = 2f;
         itemMagnet.enabled = true;
         itemMagnet.trigger.enabled = true;
 
-        visualEffect = GetVisualEffect(skillTreeData);
-
         itemMagnet.OnItemCatchEvent -= OnItemCatch;
         itemMagnet.OnItemReleaseEvent -= OnItemRelease;
         itemMagnet.OnItemCatchEvent += OnItemCatch;
         itemMagnet.OnItemReleaseEvent += OnItemRelease;
-
-        Player.currentCreature.handLeft.OnGrabEvent += OnGrabEvent;
-        Player.currentCreature.handRight.OnGrabEvent += OnGrabEvent;
-        Player.currentCreature.handLeft.OnUnGrabEvent += OnUngrabEvent;
-        Player.currentCreature.handRight.OnUnGrabEvent += OnUngrabEvent;
+        
+        Player.currentCreature.handLeft.OnGrabEvent += OnGrab;
+        Player.currentCreature.handRight.OnGrabEvent += OnGrab;
+        Player.currentCreature.handLeft.OnUnGrabEvent += OnUngrab;
+        Player.currentCreature.handRight.OnUnGrabEvent += OnUngrab;
 
         exclusionLineRenderer = gameObject.AddComponent<ExclusionLineRenderer>();
         Catalog.LoadAssetAsync<GameObject>(ItemModuleEnrichmentCore.lineRendererAddress, line =>
@@ -83,35 +78,57 @@ public class UIEnrichmentTierNode : ThunderBehaviour
         exclusionLineRenderer.Disable(0.01f);
     }
 
-    private void OnGrabEvent(Side side, Handle handle, float axisPosition, HandlePose orientation, EventTime eventTime)
+    public void RemoveDelegates()
     {
-        if (eventTime == EventTime.OnEnd && handle.item is Item item && item.TryGetComponent(out SkillTreeCrystal skillTreeCrystal) && skillTreeCrystal.treeName == skillTreeData.id && uiEnrichmentCore.isGlowing) ToggleVfx(side, item, true);
+        itemMagnet.OnItemCatchEvent -= OnItemCatch;
+        itemMagnet.OnItemReleaseEvent -= OnItemRelease;
+        
+        Player.currentCreature.handLeft.OnGrabEvent -= OnGrab;
+        Player.currentCreature.handRight.OnGrabEvent -= OnGrab;
+        Player.currentCreature.handLeft.OnUnGrabEvent -= OnUngrab;
+        Player.currentCreature.handRight.OnUnGrabEvent -= OnUngrab;
+    }
+    
+    private void OnGrab(Side side, Handle handle, float axisPosition, HandlePose orientation, EventTime eventTime)
+    {
+        if (eventTime == EventTime.OnStart) return;
+        ToggleVfx(side, handle?.item, true);
     }
 
-    private void OnUngrabEvent(Side side, Handle handle, bool throwing, EventTime eventTime)
+    private void OnUngrab(Side side, Handle handle, bool throwing, EventTime eventTime)
     {
-        if (eventTime == EventTime.OnEnd && vfxShown && side == lastSide) ToggleVfx(side, handle.item, false);
+        if (eventTime == EventTime.OnStart || isShown) return;
+        ToggleVfx(side, handle?.item, false);
     }
 
     public void ToggleVfx(Side side, Item item, bool active)
     {
+        if (!uiEnrichmentCore.isShown || !item || !item.TryGetComponent(out SkillTreeCrystal skillTreeCrystal) || skillTreeCrystal.treeName != skillTreeData.id) return;
         if (active)
         {
+            item.data.SpawnAsync(fake =>
+            {
+                fakeItem = fake;
+                fakeItem.physicBody.isKinematic = true;
+                fakeItem.physicBody.useGravity = false;
+                fakeItem.Hide(true);
+                foreach (Handle handle in fakeItem.handles) handle.SetTouch(false);
+                fakeItem.SetColliders(false, true);
+                if (itemMagnet.capturedItems.Select(c => c.item).Contains(fakeItem)) itemMagnet.ReleaseItem(itemMagnet.capturedItems.FirstOrDefault(c => c.item == fakeItem));
+            }, itemMagnet.transform.position, Quaternion.identity, itemMagnet.transform);
             lastSide = side;
-            visualEffect.transform.SetParent(item.transform);
-            visualEffect.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
             vfxShown = true;
-            visualEffect.gameObject.SetActive(true);
-            visualEffect.Play();
             Toggle(true);
         }
         else
         {
-            visualEffect.transform.SetParent(null);
-            visualEffect.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
+            foreach (Handle handle in fakeItem?.handles) handle?.SetTouch(true);
+            fakeItem.Hide(false);
+            fakeItem.SetColliders(true);
+            if (itemMagnet.capturedItems.Select(c => c.item).Contains(fakeItem)) itemMagnet.ReleaseItem(itemMagnet.capturedItems.FirstOrDefault(c => c.item == fakeItem));
+            fakeItem.DisallowDespawn = false;
+            fakeItem.Despawn();
             vfxShown = false;
-            visualEffect.gameObject.SetActive(false);
-            visualEffect.Stop();
             if (!isShown) Toggle(false);
         }
     }
@@ -149,12 +166,18 @@ public class UIEnrichmentTierNode : ThunderBehaviour
         if (time == EventTime.OnEnd || caughtItem.data == null || string.IsNullOrEmpty(caughtItem.data.id) || !caughtItem.data.id.Contains(skillTreeData.id)) return;
         itemMagnet.transform.rotation = Quaternion.LookRotation(Vector3.ProjectOnPlane(caughtItem.ForwardVector(), Vector3.up));
         caughtItem.Haptic(1f);
+        caughtItem.RunAfter(() =>
+        {
+            if (!caughtItem.IsHeldByPlayer) caughtItem.GetComponent<SkillTreeCrystal>().SetGlow(true);
+        }, 0.25f);
         Show();
     }
 
     private void OnItemRelease(Item caughtItem, EventTime time)
     {
         if (caughtItem == null || time == EventTime.OnStart || !caughtItem.data.id.Contains("Crystal")) return;
+        VizManager.ClearViz(this, $"crystal{caughtItem.data.id}{skillTreeData.id}");
+        caughtItem.GetComponent<SkillTreeCrystal>().SetGlow(false);
         caughtItem.Haptic(1f);
         Hide();
     }
@@ -162,22 +185,15 @@ public class UIEnrichmentTierNode : ThunderBehaviour
     protected override void ManagedFixedUpdate()
     {
         base.ManagedFixedUpdate();
-        if (visualEffect != null && vfxShown)
-        {
-            Vector3 toMagnet = itemMagnet.transform.position - visualEffect.transform.position;
-            if (toMagnet.sqrMagnitude > 0.0001f)
-            {
-                Quaternion targetRotation = Quaternion.LookRotation(toMagnet.normalized);
-                visualEffect.transform.rotation = Quaternion.Slerp(visualEffect.transform.rotation, targetRotation, Time.deltaTime * 10f);
-            }
-        }
+        if (heldCrystal != null) VizManager.AddOrUpdateViz(this, $"crystal{heldCrystal.data.id}{skillTreeData.id}", skillTreeData.color, VizManager.VizType.Lines, new[] { itemMagnet.transform.position, heldCrystal.transform.position });
 
         if (!Player.local || enrichmentOrbs.Count == 0 || !isShown) return;
         for (int i = 0; i < enrichmentOrbs.Count; i++)
         {
             float angle = 360f / enrichmentOrbs.Count * i * Mathf.Deg2Rad;
             Vector3 localOffset = new Vector3(Mathf.Cos(angle), 0, Mathf.Sin(angle)) * 0.1f;
-            enrichmentOrbs[i].MoveTo(transform.TransformPoint(localOffset), Quaternion.identity);
+            enrichmentOrbs[i].MoveTo(magnetObject.transform.TransformPoint(localOffset), Quaternion.identity); 
+            VizManager.AddOrUpdateViz(this, $"{skillTreeData.id} + {enrichmentOrbs[i].enrichmentData.id}", skillTreeData.color, VizManager.VizType.Lines, new [] { enrichmentOrbs[i].transform.position, transform.TransformPoint(localOffset) });
         }
     }
 
@@ -187,7 +203,7 @@ public class UIEnrichmentTierNode : ThunderBehaviour
         isShown = true;
         effectInstance = uiEnrichmentCore.itemModuleEnrichmentCore.loopEffectData?.Spawn(itemMagnet.transform);
         effectInstance?.Play();
-        GameManager.local.StartCoroutine(uiEnrichmentCore.ShowCoroutine(enrichments, enrichmentOrbs, exclusionLineRenderer, 0.1f, skillTreeData.emissionColor, transform));
+        GameManager.local.StartCoroutine(uiEnrichmentCore.ShowCoroutine(enrichments, enrichmentOrbs, exclusionLineRenderer, 0.1f, skillTreeData.emissionColor, itemMagnet.transform));
     }
 
     public void Hide()
@@ -197,18 +213,11 @@ public class UIEnrichmentTierNode : ThunderBehaviour
         effectInstance?.SetParent(null);
         effectInstance?.End();
         effectInstance = null;
+        if (heldCrystal) VizManager.ClearViz(this, $"crystal{heldCrystal.data.id}{skillTreeData.id}");
         if (itemMagnet.capturedItems.Count == 1) itemMagnet.ReleaseItem(itemMagnet.capturedItems[0]);
+        for (int i = 0; i < enrichmentOrbs.Count; i++) 
+            VizManager.ClearViz(enrichmentOrbs[i], $"{skillTreeData.id} + {enrichmentOrbs[i].enrichmentData.id}");
+        
         GameManager.local.StartCoroutine(uiEnrichmentCore.HideCoroutine(enrichmentOrbs, exclusionLineRenderer));
-    }
-
-    public static VisualEffect GetVisualEffect(SkillTreeData skillTreeData)
-    {
-        if (visualEffectAsset != null)
-        {
-            VisualEffect visualEffect = Instantiate(visualEffectAsset).GetComponent<VisualEffect>();
-            visualEffect.SetVector4("Source Color", skillTreeData.emissionColor);
-            return visualEffect;
-        }
-        return null;
     }
 }

@@ -1,7 +1,8 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using HarmonyLib;
+using Enrichments.Core;
 using ThunderRoad;
 using UnityEngine;
 
@@ -12,19 +13,27 @@ namespace Enrichments;
 /// </summary>
 public class EnrichmentManager : ThunderScript
 {
+    public const string Settings = "Settings";
+    public const int Version = 0;
+    
     /// <summary>
     /// A collection of every active item with an enrichment.
     /// </summary>
     public static Dictionary<Item, List<EnrichmentData>> Enrichments { get; } = new();
+    
+    /// <summary>
+    /// A collection of every mod referencing the Enrichments assembly, with a data lookup for finding ownership.
+    /// </summary>
+    public static Dictionary<ModManager.ModData, EnrichmentData[]> enrichmentMods = new();
 
     public override void ScriptEnable()
     {
         base.ScriptEnable();
-        new Harmony("com.silk.enrichments").PatchAll();
         Item.OnItemSpawn += OnItemSpawn;
         Item.OnItemDespawn += OnItemDespawn;
         EventManager.onCreatureSpawn += OnCreatureSpawn;
         EventManager.onCreatureDespawn += OnCreatureDespawn;
+        GameManager.local.StartCoroutine(LoadCoroutine());
     }
 
     public override void ScriptDisable()
@@ -34,6 +43,30 @@ public class EnrichmentManager : ThunderScript
         Item.OnItemDespawn -= OnItemDespawn;
         EventManager.onCreatureSpawn -= OnCreatureSpawn;
         EventManager.onCreatureDespawn -= OnCreatureDespawn;
+    }
+
+    private IEnumerator LoadCoroutine()
+    {
+        yield return new WaitUntil(() => ModManager.isGameModsCatalogRefreshed);
+        foreach (ModManager.ModData mod in ModManager.loadedMods)
+            if (mod.assemblies.Any(a => a.GetReferencedAssemblies().Any(r => r.Name == "Enrichments" && mod.Name != "Enrichments")))
+                enrichmentMods[mod] = mod.ownedDatas.OfType<EnrichmentData>().ToArray();
+        
+        var sb = new System.Text.StringBuilder();
+        string add = enrichmentMods.Count == 0 ? "." : ":";
+        sb.AppendLine($"[Enrichments] Found {enrichmentMods.Count} mod(s) referencing the Enrichments assembly{add}");
+        
+        foreach (var kvp in enrichmentMods)
+        {
+            var mod = kvp.Key;
+            var data = kvp.Value;
+            sb.AppendLine($"- {mod.Name} ({data.Length}){(mod.Incompatible ? " (Incompatible)" : "")}");
+            foreach (var d in data)
+                sb.AppendLine($"  - {d.id}{(d.GetCurrentVersion() == d.version ? "" : " (Incompatible)")}");
+            sb.AppendLine();
+        }
+
+        Debug.Log(sb.ToString());
     }
 
     private void OnCreatureSpawn(Creature creature)
@@ -226,10 +259,10 @@ public class EnrichmentManager : ThunderScript
     /// </summary>
     /// <param name="item">The item to enrich.</param>
     /// <param name="id">The identifier of the enrichment to add.</param>
-    public static void AddEnrichment(Item item, string id)
+    public static void AddEnrichment(Item item, string id, bool log = true)
     {
         var enrichmentData = Catalog.GetData<EnrichmentData>(id);
-        AddEnrichment(item, enrichmentData);
+        AddEnrichment(item, enrichmentData, log);
     }
 
     /// <summary>
@@ -237,13 +270,13 @@ public class EnrichmentManager : ThunderScript
     /// </summary>
     /// <param name="item">The item to enrich.</param>
     /// <param name="enrichmentData">The enrichment data to attach to the item.</param>
-    public static void AddEnrichment(Item item, EnrichmentData enrichmentData)
+    public static void AddEnrichment(Item item, EnrichmentData enrichmentData, bool log = true)
     {
         item.GetOrAddCustomData<ContentCustomEnrichment>().Add(enrichmentData.id);
         Validate(item, out var enrichments);
         try
         {
-            Debug.Log($"[Enrichments] Item: {item.data.id} loaded enrichment: {enrichmentData.id}");
+            if (log) Debug.Log($"[Enrichments] Item: {item.data.id} loaded enrichment: {enrichmentData.id}");
             if (enrichmentData.Clone() is not EnrichmentData clone) return;
             clone.OnEnrichmentLoaded(item);
             enrichments.Add(clone);
@@ -259,7 +292,7 @@ public class EnrichmentManager : ThunderScript
     /// </summary>
     /// <param name="item">The item from which to remove the enrichment.</param>
     /// <param name="id">The identifier of the enrichment to remove.</param>
-    public static void RemoveEnrichment(Item item, string id)
+    public static void RemoveEnrichment(Item item, string id, bool log = true)
     {
         if (!Enrichments.TryGetValue(item, out var enrichments)) return;
         var enrichmentData = enrichments.FirstOrDefault(e => e.id == id);
@@ -268,7 +301,7 @@ public class EnrichmentManager : ThunderScript
         if (contentCustomEnrichment.Has(id)) contentCustomEnrichment.Remove(enrichmentData.id);
         try
         {
-            Debug.Log($"[Enrichments] Item: {item.data.id} unloaded enrichment: {enrichmentData.id}");
+            if (log) Debug.Log($"[Enrichments] Item: {item.data.id} unloaded enrichment: {enrichmentData.id}");
             enrichmentData.OnEnrichmentUnloaded(item);
             enrichments.Remove(enrichmentData);
             if (enrichments.Count == 0)
@@ -312,11 +345,16 @@ public class EnrichmentManager : ThunderScript
                     }
                     catch (Exception e)
                     {
-                        Debug.LogError($"[Enrichments] Caught exception while loading enrichment, skipping: {id} on item: {item.data.id}. {e}");
-                        ids.RemoveAt(i);
+                        Debug.LogError($"[Enrichments] Caught exception while loading enrichment, skipping: {id} on item: {item.data.id}. Exception below:");
+                        Debug.LogException(e);
+                        ids[i] += "(Failed)";
                     }
                 }
-                else Debug.LogWarning($"[Enrichments] Enrichment: {id} exists in item: {item.data.id}, but does not exist as a Json. Ensure your mod has a manifest and that the enrichment is valid.");
+                else
+                {
+                    Debug.LogWarning($"[Enrichments] Enrichment: {id} exists in item: {item.data.id}, but does not exist as a Json. Ensure your mod has a manifest and that the enrichment is valid.");
+                    id += "(Missing Reference)";
+                }
             }
 
             foreach (EnrichmentData enrichmentData in enrichments) enrichmentData.OnLateEnrichmentsLoaded(enrichments);
@@ -342,7 +380,9 @@ public class EnrichmentManager : ThunderScript
             }
             catch (Exception e)
             {
-                Debug.LogError($"[Enrichments] Caught exception while unloading enrichment, skipping: {enrichment.id} on item: {item.data.id}. {e}");
+                Debug.LogError($"[Enrichments] Caught exception while unloading enrichment, skipping: {enrichment.id} on item: {item.data.id}. Exception below:");
+                Debug.LogException(e);
+                unloadedIds.Add(enrichment.id += "(Failed)");
             }
         }
 

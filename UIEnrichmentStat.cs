@@ -16,15 +16,9 @@ public class UIEnrichmentStat : ThunderBehaviour
     public void Load(Transform root, ItemData itemData, float offset, float scale, Item existingItem = null)
     {
         this.root = root;
-        if (itemData == null)
-        {
-            Clear();
-            return;
-        }
-
+        Clear();
         item = existingItem != null ? existingItem : GetHeldItem(itemData.id);
         if (EnrichmentManager.TryGetEnrichments(item, out List<EnrichmentData> enrichments) && gameObject.activeSelf && gameObject.activeInHierarchy) StartCoroutine(Load(enrichments));
-        else Clear();
 
         IEnumerator Load(List<EnrichmentData> enrichments)
         {
@@ -58,9 +52,9 @@ public class UIEnrichmentStat : ThunderBehaviour
 
         void Clear()
         {
+            if (uiEnrichments.IsNullOrEmpty()) return;
             foreach (var uiEnrichment in uiEnrichments) Destroy(uiEnrichment.gameObject);
             uiEnrichments.Clear();
-            item = null;
         }
     }
 
