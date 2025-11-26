@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,6 +10,7 @@ namespace Enrichments;
 
 public class UIEnrichmentCore : ThunderBehaviour
 {
+    public static Action<UIEnrichmentCore, EnrichmentData, EnrichmentArgs> onEnrichmentValidate;
     private const float CoreOrbOrbitRadius = 0.15f;
     private const float NodeOrbitRadius = 0.35f;
 
@@ -40,13 +42,13 @@ public class UIEnrichmentCore : ThunderBehaviour
 
     public override ManagedLoops EnabledManagedLoops => ManagedLoops.FixedUpdate | ManagedLoops.Update;
 
-    public float BobbingOffset()
+    public virtual float BobbingOffset()
     {
         bobbingTime += Time.fixedDeltaTime;
         return Mathf.Sin(bobbingTime * bobbingFrequency * Mathf.PI * 2f) * bobbingAmplitude;
     }
 
-    public void Init(Item item, ItemModuleEnrichmentCore itemModuleEnrichmentCore)
+    public virtual void Init(Item item, ItemModuleEnrichmentCore itemModuleEnrichmentCore)
     { 
         if (initialized) ResetCore();
         initialized = true;
@@ -75,12 +77,12 @@ public class UIEnrichmentCore : ThunderBehaviour
         itemMagnet.catchedItemIgnoreGravityPush = true;
         itemMagnet.magnetReactivateDurationOnRelease = 1f;
         itemMagnet.kinematicLock = true;
-        itemMagnet.releaseOnGrabOrTKOnly = false;
+        itemMagnet.releaseOnGrabOrTKOnly = true;
         itemMagnet.maxCount = 1;
         itemMagnet.trigger = sphereCollider;
-        itemMagnet.massMultiplier = 2f;
+        itemMagnet.massMultiplier = 1f;
         itemModuleEnrichmentCore.Load();
-        tier = ExtractTier(item.data.id);
+        tier = item.data.tier;
 
         foreach (EnrichmentData enrichmentData in Catalog.GetDataList<EnrichmentData>().Where(e => !string.IsNullOrEmpty(e.primarySkillTreeId) && e.primarySkillTreeId == skillTreeCrystal.treeName & string.IsNullOrEmpty(e.secondarySkillTreeId) && e.showInCore))
             if (tier >= enrichmentData.tier)
@@ -108,7 +110,7 @@ public class UIEnrichmentCore : ThunderBehaviour
         item.OnDespawnEvent += OnDespawnEvent;
     }
     
-    public void ResetCore()
+    public virtual void ResetCore()
     {
         if (item)
         {
@@ -173,7 +175,7 @@ public class UIEnrichmentCore : ThunderBehaviour
         Toggle(false);
     }
 
-    public void OnHeldAction(RagdollHand hand, Handle handle, Interactable.Action action)
+    public virtual void OnHeldAction(RagdollHand hand, Handle handle, Interactable.Action action)
     {
         switch (action)
         {
@@ -225,13 +227,13 @@ public class UIEnrichmentCore : ThunderBehaviour
         }
     }
 
-    public void UpdateMove(Vector3 desiredPos, Quaternion desiredRot)
+    public virtual void UpdateMove(Vector3 desiredPos, Quaternion desiredRot)
     {
         float bobOffset = BobbingOffset();
         pid.Update(desiredPos + Vector3.up * bobOffset, desiredRot);
     }
 
-    public void Toggle(bool shown)
+    public virtual void Toggle(bool shown)
     {
         if (isGlowing == shown) return;
         item.Haptic(1);
@@ -280,14 +282,14 @@ public class UIEnrichmentCore : ThunderBehaviour
         }
     }
 
-    public void Show()
+    public virtual void Show()
     {
         if (isShown) return;
         isShown = true;
         GameManager.local.StartCoroutine(ShowCoroutine(coreEnrichments, coreEnrichmentOrbs, coreExclusionLineRenderer, CoreOrbOrbitRadius, skillTreeCrystal.skillTreeEmissionColor, follower.transform));
     }
 
-    public void Hide()
+    public virtual void Hide()
     {
         if (!isShown) return;
         isShown = false;
@@ -302,7 +304,7 @@ public class UIEnrichmentCore : ThunderBehaviour
         GameManager.local.StartCoroutine(HideCoroutine(coreEnrichmentOrbs, coreExclusionLineRenderer));
     }
 
-    public IEnumerator ShowCoroutine(List<EnrichmentData> enrichments, List<EnrichmentOrb> populateList, ExclusionLineRenderer exclusionLineRenderer, float orbitRadius, Color lineColor, Transform parentTransform)
+    public virtual IEnumerator ShowCoroutine(List<EnrichmentData> enrichments, List<EnrichmentOrb> populateList, ExclusionLineRenderer exclusionLineRenderer, float orbitRadius, Color lineColor, Transform parentTransform)
     {
         if (enrichments.Count <= 0) yield break;
         populateList.Clear();
@@ -311,7 +313,9 @@ public class UIEnrichmentCore : ThunderBehaviour
         List<EnrichmentData> validEnrichments = new();
         foreach (var enrichment in enrichments)
         {
-            if (heldItem && enrichment.IsAllowedOnItem(heldItem))
+            EnrichmentArgs args = new EnrichmentArgs(true);
+            onEnrichmentValidate?.Invoke(this, enrichment, args);
+            if (heldItem && enrichment.IsAllowedOnItem(heldItem) && !args.ResultContains(false))
                 validEnrichments.Add(enrichment);
         }
 
@@ -335,7 +339,7 @@ public class UIEnrichmentCore : ThunderBehaviour
         exclusionLineRenderer.Enable();
     }
 
-    public IEnumerator HideCoroutine(List<EnrichmentOrb> orbListToClear, ExclusionLineRenderer lineRenderer)
+    public virtual IEnumerator HideCoroutine(List<EnrichmentOrb> orbListToClear, ExclusionLineRenderer lineRenderer)
     {
         if (orbListToClear == null || orbListToClear.Count == 0) yield break;
 
@@ -348,12 +352,5 @@ public class UIEnrichmentCore : ThunderBehaviour
 
         orbListToClear.Clear();
         lineRenderer.Disable();
-    }
-
-    private static int ExtractTier(string source)
-    {
-        if (string.IsNullOrEmpty(source)) return -1;
-        var match = Regex.Match(source, @"T(\d+)");
-        return match.Success ? int.Parse(match.Groups[1].Value) : -1;
     }
 }

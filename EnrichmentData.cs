@@ -99,6 +99,7 @@ namespace Enrichments
             base.OnCatalogRefresh();
             secondarySkillTree = Catalog.GetData<SkillTreeData>(secondarySkillTreeId);
             primarySkillTree = Catalog.GetData<SkillTreeData>(primarySkillTreeId);
+            
             foreach (ItemData itemData in Catalog.GetDataList<ItemData>().Where(i => i.TryGetModule(out ItemModuleCrystal _) && !IgnoredItemIds.Contains(i.id)))
                 if (!itemData.TryGetModule(out ItemModuleEnrichmentCore _))
                     itemData.modules.Add(new ItemModuleEnrichmentCore());

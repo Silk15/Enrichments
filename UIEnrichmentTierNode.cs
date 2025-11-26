@@ -52,10 +52,10 @@ public class UIEnrichmentTierNode : ThunderBehaviour
         itemMagnet.catchedItemIgnoreGravityPush = true;
         itemMagnet.magnetReactivateDurationOnRelease = 1f;
         itemMagnet.kinematicLock = true;
-        itemMagnet.releaseOnGrabOrTKOnly = false;
+        itemMagnet.releaseOnGrabOrTKOnly = true;
         itemMagnet.maxCount = 1;
         itemMagnet.trigger = sphereCollider;
-        itemMagnet.massMultiplier = 2f;
+        itemMagnet.massMultiplier = 1f;
         itemMagnet.enabled = true;
         itemMagnet.trigger.enabled = true;
 
@@ -177,8 +177,8 @@ public class UIEnrichmentTierNode : ThunderBehaviour
     {
         if (caughtItem == null || time == EventTime.OnStart || !caughtItem.data.id.Contains("Crystal")) return;
         VizManager.ClearViz(this, $"crystal{caughtItem.data.id}{skillTreeData.id}");
-        caughtItem.GetComponent<SkillTreeCrystal>().SetGlow(false);
-        caughtItem.Haptic(1f);
+        caughtItem?.GetComponent<SkillTreeCrystal>()?.SetGlow(false);
+        caughtItem?.Haptic(1f);
         Hide();
     }
 

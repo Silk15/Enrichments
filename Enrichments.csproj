@@ -89,8 +89,9 @@
     </ItemGroup>
     <ItemGroup>
         <Compile Include="ContentCustomEnrichment.cs" />
-        <Compile Include="Core\GlobalSettingsData.cs" />
+        <Compile Include="Core\DefaultVersionUpdater.cs" />
         <Compile Include="Core\VersionUpdater.cs" />
+        <Compile Include="EnrichmentArgs.cs" />
         <Compile Include="EnrichmentData.cs" />
         <Compile Include="EnrichmentHolder.cs" />
         <Compile Include="EnrichmentManager.cs" />
@@ -101,7 +102,6 @@
         <Compile Include="ItemModuleEnrichmentCore.cs" />
         <Compile Include="PID.cs" />
         <Compile Include="Properties\AssemblyInfo.cs"/>
-        <Compile Include="SkillTreeCrystalFieldExposer.cs" />
         <Compile Include="UIEnrichment.cs" />
         <Compile Include="UIEnrichmentCore.cs" />
         <Compile Include="UIEnrichmentSlotHighlighter.cs" />

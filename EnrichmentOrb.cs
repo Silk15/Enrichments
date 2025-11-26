@@ -82,14 +82,35 @@ namespace Enrichments
         public static EnrichmentOrb Create()
         {
             GameObject prefab = Instantiate(enrichmentPrefab);
-            if (!prefab.TryGetComponent(out EnrichmentOrb orb))
+            EnrichmentOrb orb = null;
+            switch (Common.IsWindows)
             {
-                Debug.Log($"[Enrichments] Failed to load prefab, gameObject ({orb.name}) does not contain an [{nameof(EnrichmentOrb)}] component.");
-                return null;
+                case true:
+                    if (!prefab.TryGetComponent(out orb))
+                    {
+                        Debug.Log($"[Enrichments] Failed to load prefab, gameObject ({orb.name}) does not contain an [{nameof(EnrichmentOrb)}] component.");
+                        return null;
+                    }
+                    break;
+                
+                case false:
+                    orb = prefab.gameObject.AddComponent<EnrichmentOrb>();
+            
+                    orb.rigidbody = prefab.GetComponent<Rigidbody>();
+                    orb.handle = prefab.GetComponentInChildren<Handle>();
+                    orb.particleSystem = prefab.GetComponentInChildren<ParticleSystem>();
+                    orb.spriteRenderer = prefab.GetComponentInChildren<SpriteRenderer>();
+            
+                    var audio = prefab.GetComponentsInChildren<AudioSource>();
+                    orb.grabAudioSource = audio[0];
+                    orb.ungrabAudioSource = audio[1];
+                    break;
             }
+            
             orb.enableEffectData = Catalog.GetData<EffectData>(orb.enableEffectId);
             orb.disableEffectData = Catalog.GetData<EffectData>(orb.disableEffectId);
             orb.enableLoopEffectData = Catalog.GetData<EffectData>(orb.enableLoopEffectId);
+            
             EnrichmentMessage.Create(orb, message =>
             {
                 orb.enrichmentMessage = message;

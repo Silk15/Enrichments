@@ -31,12 +31,12 @@ namespace Enrichments
         public TextMeshPro maxText;
 
         [Header("Values")]
-        public float upOffset = 0.2f;
+        public float upOffset = 0.35f;
 
-        public float forwardOffset = 0.05f;
-        public float followSpeed = 20f;
+        public float forwardOffset = 0.15f;
+        public float followSpeed = 10f;
         public float scaleSpeed = 3f;
-        protected float currentScale;
+        public float currentScale;
 
         [NonSerialized]
         public bool isShown;
@@ -47,23 +47,50 @@ namespace Enrichments
         [NonSerialized]
         public Coroutine flashCoroutine;
         
-        private ParticleSystem[] loopParticles;
-        private ParticleSystem.MinMaxGradient[] loopOriginals;
+        public ParticleSystem[] loopParticles;
+        public ParticleSystem.MinMaxGradient[] loopOriginals;
 
         public static void Create(EnrichmentOrb enrichmentOrb, Action<EnrichmentMessage> onComplete)
         {
             Catalog.LoadAssetAsync<GameObject>("Silk.Prefab.Enrichments.Message", o =>
             {
                 var obj = Instantiate(o, EnrichmentOrb.enrichmentRoot.transform);
-                if (obj.TryGetComponent(out EnrichmentMessage component))
+                EnrichmentMessage component = null;
+                switch (Common.IsWindows)
                 {
-                    component.enrichmentOrb = enrichmentOrb;
-                    component.InitializeVideoRendering();
-                    onComplete?.Invoke(component);
-                    return;
-                }
+                    case true:
+                        if (obj.TryGetComponent(out component))
+                        {
+                            component.enrichmentOrb = enrichmentOrb;
+                            component.InitializeVideoRendering();
+                            onComplete?.Invoke(component);
+                            return;
+                        }
 
-                Debug.Log($"[Enrichments] Failed to load enrichment message on prefab: {obj.name}, there is no EnrichmentMessage component attached!");
+                        Debug.Log($"[Enrichments] Failed to load enrichment message on prefab: {obj.name}, there is no EnrichmentMessage component attached!");
+                        break;
+                    case false:
+                        component = obj.AddComponent<EnrichmentMessage>();
+                        TextMeshPro[] textMeshPro = obj.GetComponentsInChildren<TextMeshPro>();
+
+                        component.buttonRenderer = component.transform.GetChildByNameRecursive("Button").GetComponent<SpriteRenderer>();
+                        component.videoRenderer = component.transform.GetChildByNameRecursive("VideoMesh").GetComponent<MeshRenderer>();
+
+                        component.buyEffect = component.buttonRenderer.transform.GetChild(1).GetComponent<ParticleSystem>();
+                        component.loopingEffect = component.buttonRenderer.transform.GetChild(0).GetComponent<ParticleSystem>();
+                        component.videoPlayer = component.GetComponentInChildren<VideoPlayer>();
+
+                        component.costText = textMeshPro[4];
+                        component.currentText = textMeshPro[0];
+                        component.descriptionText = textMeshPro[3];
+                        component.maxText = textMeshPro[1];
+                        component.titleText = textMeshPro[2];
+
+                        component.enrichmentOrb = enrichmentOrb;
+                        component.InitializeVideoRendering();
+                        onComplete?.Invoke(component);
+                        break;
+                }
             }, $"Enrichment Message");
         }
 

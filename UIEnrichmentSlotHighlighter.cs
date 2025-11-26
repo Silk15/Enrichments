@@ -1,3 +1,4 @@
+using System.Linq;
 using Enrichments;
 using ThunderRoad;
 using UnityEngine;
@@ -54,7 +55,7 @@ public class UIEnrichmentSlotHighlighter : ThunderBehaviour
         foreach (Holder holder in creature.holders)
         {
             var highlighter = side == Side.Left ? Highlighter.left : Highlighter.right;
-            foreach (Item item in holder.items)
+            foreach (Item item in holder.items.Where(i => EnrichmentManager.HasEnrichments(i)))
                 if (item.data.displayName == highlighter.titleText.text) return item;
         }
 

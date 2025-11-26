@@ -13,7 +13,10 @@ namespace Enrichments;
 /// </summary>
 public class EnrichmentManager : ThunderScript
 {
-    public const string Settings = "Settings";
+    public static List<VersionUpdater> VersionUpdaters { get; } = new()
+    {
+        new DefaultVersionUpdater()
+    };
     public const int Version = 0;
     
     /// <summary>
@@ -26,6 +29,12 @@ public class EnrichmentManager : ThunderScript
     /// </summary>
     public static Dictionary<ModManager.ModData, EnrichmentData[]> enrichmentMods = new();
 
+    public static EnrichmentDelegate onEnrichmentLoaded;
+    public static EnrichmentDelegate onEnrichmentUnloaded;
+    
+    public static EnrichmentListDelegate onEnrichmentsLoaded;
+    public static EnrichmentListDelegate onEnrichmentsUnloaded;
+
     public override void ScriptEnable()
     {
         base.ScriptEnable();
@@ -33,7 +42,7 @@ public class EnrichmentManager : ThunderScript
         Item.OnItemDespawn += OnItemDespawn;
         EventManager.onCreatureSpawn += OnCreatureSpawn;
         EventManager.onCreatureDespawn += OnCreatureDespawn;
-        GameManager.local.StartCoroutine(LoadCoroutine());
+        if (Common.IsWindows) GameManager.local.StartCoroutine(LoadCoroutine());
     }
 
     public override void ScriptDisable()
@@ -151,6 +160,12 @@ public class EnrichmentManager : ThunderScript
         }
 
         enrichments = list;
+    }
+
+    public static void UpdateVersions(Item item, ContentCustomEnrichment contentEnrichment)
+    {
+        foreach (VersionUpdater versionUpdater in VersionUpdaters)
+            if (versionUpdater.Allowed(contentEnrichment)) versionUpdater.Update(item.data.id, contentEnrichment);
     }
 
     /// <summary>
@@ -272,7 +287,8 @@ public class EnrichmentManager : ThunderScript
     /// <param name="enrichmentData">The enrichment data to attach to the item.</param>
     public static void AddEnrichment(Item item, EnrichmentData enrichmentData, bool log = true)
     {
-        item.GetOrAddCustomData<ContentCustomEnrichment>().Add(enrichmentData.id);
+        var contentEnrichment = item.GetOrAddCustomData<ContentCustomEnrichment>();
+        contentEnrichment.Add(enrichmentData.id);
         Validate(item, out var enrichments);
         try
         {
@@ -280,6 +296,7 @@ public class EnrichmentManager : ThunderScript
             if (enrichmentData.Clone() is not EnrichmentData clone) return;
             clone.OnEnrichmentLoaded(item);
             enrichments.Add(clone);
+            onEnrichmentLoaded?.Invoke(item, clone);
         }
         catch (Exception e)
         {
@@ -304,6 +321,7 @@ public class EnrichmentManager : ThunderScript
             if (log) Debug.Log($"[Enrichments] Item: {item.data.id} unloaded enrichment: {enrichmentData.id}");
             enrichmentData.OnEnrichmentUnloaded(item);
             enrichments.Remove(enrichmentData);
+            onEnrichmentUnloaded?.Invoke(item, enrichmentData);
             if (enrichments.Count == 0)
             {
                 Enrichments.Remove(item);
@@ -325,6 +343,7 @@ public class EnrichmentManager : ThunderScript
     {
         if (item.TryGetCustomData(out ContentCustomEnrichment contentEnrichment))
         {
+            UpdateVersions(item, contentEnrichment);
             var ids = new List<string>(contentEnrichment.Enrichments);
             Validate(item, out var enrichments);
             for (int i = ids.Count - 1; i >= 0; i--)
@@ -358,6 +377,8 @@ public class EnrichmentManager : ThunderScript
             }
 
             foreach (EnrichmentData enrichmentData in enrichments) enrichmentData.OnLateEnrichmentsLoaded(enrichments);
+            onEnrichmentsLoaded?.Invoke(item, enrichments);
+            
             string slot = item.holder != null ? $"from slot: {item.holder}" : "";
             Debug.Log($"[{item.data.id}] Loaded item enrichments{slot}:\n- " + string.Join("\n- ", ids));
         }
@@ -370,6 +391,7 @@ public class EnrichmentManager : ThunderScript
     public static void UnloadEnrichments(Item item)
     {
         if (!Enrichments.TryGetValue(item, out var enrichments)) return;
+        onEnrichmentsUnloaded?.Invoke(item, enrichments);
         var unloadedIds = new List<string>();
         foreach (var enrichment in enrichments)
         {
@@ -390,4 +412,8 @@ public class EnrichmentManager : ThunderScript
         enrichments.Clear();
         Enrichments.Remove(item);
     }
+    
+    public delegate void EnrichmentDelegate(Item item, EnrichmentData enrichmentData);
+    
+    public delegate void EnrichmentListDelegate(Item item, List<EnrichmentData> enrichments);
 }

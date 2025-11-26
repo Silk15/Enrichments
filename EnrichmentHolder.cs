@@ -49,6 +49,7 @@ public class EnrichmentHolder : ThunderBehaviour
     protected override void ManagedUpdate()
     {
         base.ManagedUpdate();
+        if (!linkedHolder) return;
         foreach (Item item in linkedHolder.items)
             if (item.holder != linkedHolder)
                 VizManager.AddOrUpdateViz(this, $"enrichmentholder{item.data.id}{linkedHolder.items.IndexOf(item)}", Color.blue, VizManager.VizType.Lines, new[] { item.transform.position, linkedHolder.transform.position });
