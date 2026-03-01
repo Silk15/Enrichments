@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿#if !SDK
+using System.Collections.Generic;
 using ThunderRoad;
 using ThunderRoad.DebugViz;
 using UnityEngine;
@@ -52,3 +53,4 @@ public static class VizManager
         Quat
     }
 }
+#endif

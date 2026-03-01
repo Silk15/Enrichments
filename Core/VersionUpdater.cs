@@ -10,6 +10,8 @@ public abstract class VersionUpdater
     public int targetVersion;
     public bool autoUpdate;
     
+    #if !SDK
+    
     public virtual bool Allowed(ContentCustomEnrichment contentCustomEnrichment) => contentCustomEnrichment.Version == sourceVersion && EnrichmentManager.Version == targetVersion;
 
     public virtual void Update(string itemId, ContentCustomEnrichment contentCustomEnrichment)
@@ -20,4 +22,5 @@ public abstract class VersionUpdater
             contentCustomEnrichment.Version = EnrichmentManager.Version;
         }
     }
+    #endif
 }

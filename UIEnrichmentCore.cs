@@ -14,31 +14,67 @@ public class UIEnrichmentCore : ThunderBehaviour
     private const float CoreOrbOrbitRadius = 0.15f;
     private const float NodeOrbitRadius = 0.35f;
 
+    [NonSerialized]
     public List<UIEnrichmentTierNode> uiEnrichmentNodes = new();
+    
+    [NonSerialized]
     public List<EnrichmentOrb> coreEnrichmentOrbs = new();
+    
+    [NonSerialized]
     public List<EnrichmentData> coreEnrichments = new();
 
+    [NonSerialized]
     public ItemModuleEnrichmentCore itemModuleEnrichmentCore;
+    
+    [NonSerialized]
+    
     public ExclusionLineRenderer coreExclusionLineRenderer;
+    
+    [NonSerialized]
     public SkillTreeCrystal skillTreeCrystal;
-    public EffectInstance effectInstance;
+    
+    [NonSerialized]
     public Transform orbitalTransform;
+    
+    [NonSerialized]
     public Quaternion hoverRotation;
+    
+    [NonSerialized]
     public ItemMagnet itemMagnet;
+    
+    [NonSerialized]
     public Vector3 hoverOrigin;
+    
+    [NonSerialized]
     public GameObject follower;
+    
+    [NonSerialized]
     public Item heldItem;
-    public RBPID pid;
+    
+    [NonSerialized]
     public Item item;
 
+    [NonSerialized]
     public bool initialized;
+    
+    [NonSerialized]
     public bool isGlowing;
+    
+    [NonSerialized]
     public bool isShown;
+    
+    [NonSerialized]
     public int tier;
 
+    [NonSerialized]
     public float bobbingFrequency = 0.25f;
+    [NonSerialized]
     public float bobbingAmplitude = 0.05f;
     protected float bobbingTime;
+    
+    #if !SDK
+    public EffectInstance effectInstance;
+    public RBPID pid;
 
     public override ManagedLoops EnabledManagedLoops => ManagedLoops.FixedUpdate | ManagedLoops.Update;
 
@@ -353,4 +389,5 @@ public class UIEnrichmentCore : ThunderBehaviour
         orbListToClear.Clear();
         lineRenderer.Disable();
     }
+    #endif
 }

@@ -19,6 +19,7 @@ namespace Enrichments
         private Coroutine fadeCoroutine;
         private float currentAlpha = 0f;
 
+        #if !SDK
         public void SetPoints(List<Vector3> positions) => exclusionPositions = positions;
 
         /// <summary>
@@ -153,5 +154,6 @@ namespace Enrichments
             line.startColor = start;
             line.endColor = end;
         }
+        #endif
     }
 }

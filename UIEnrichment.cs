@@ -9,6 +9,8 @@ namespace Enrichments
         public SpriteRenderer outlineSpriteRenderer;
         public SpriteRenderer colorSpriteRenderer;
 
+        #if !SDK
         public void SetColor(EnrichmentData enrichmentData) => colorSpriteRenderer.color = enrichmentData.secondarySkillTreeId.IsNullOrEmptyOrWhitespace() ? enrichmentData.primarySkillTree.color : Color.Lerp(enrichmentData.primarySkillTree.color, enrichmentData.secondarySkillTree.color, 0.5f);
+        #endif
     }
 }

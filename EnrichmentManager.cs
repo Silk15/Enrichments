@@ -1,3 +1,4 @@
+#if !SDK
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -42,7 +43,7 @@ public class EnrichmentManager : ThunderScript
         Item.OnItemDespawn += OnItemDespawn;
         EventManager.onCreatureSpawn += OnCreatureSpawn;
         EventManager.onCreatureDespawn += OnCreatureDespawn;
-        if (Common.IsWindows) GameManager.local.StartCoroutine(LoadCoroutine());
+        GameManager.local.StartCoroutine(LoadCoroutine());
     }
 
     public override void ScriptDisable()
@@ -90,7 +91,7 @@ public class EnrichmentManager : ThunderScript
 
     private void OnCreatureDespawn(Creature creature, EventTime eventTime)
     {
-        if (eventTime == EventTime.OnEnd) return;
+        if (eventTime == EventTime.OnEnd || !creature.mana) return;
         if (creature.isPlayer && creature.TryGetComponent(out UIEnrichmentSlotHighlighter slotHighlighter)) slotHighlighter.Unload();
         creature.mana.OnImbueLoadEvent -= ImbueLoad;
         creature.mana.OnImbueUnloadEvent -= ImbueUnload;
@@ -146,128 +147,7 @@ public class EnrichmentManager : ThunderScript
             }
     }
     
-    /// <summary>
-    /// Internal helper to validate an item's enrichments within the main collection.
-    /// </summary>
-    /// <param name="item">The item to validate.</param>
-    /// <param name="enrichments">The collection of enrichments validated.</param>
-    public static void Validate(Item item, out List<EnrichmentData> enrichments)
-    {
-        if (!Enrichments.TryGetValue(item, out var list))
-        {
-            list = new List<EnrichmentData>();
-            Enrichments[item] = list;
-        }
-
-        enrichments = list;
-    }
-
-    public static void UpdateVersions(Item item, ContentCustomEnrichment contentEnrichment)
-    {
-        foreach (VersionUpdater versionUpdater in VersionUpdaters)
-            if (versionUpdater.Allowed(contentEnrichment)) versionUpdater.Update(item.data.id, contentEnrichment);
-    }
-
-    /// <summary>
-    /// Determines whether the specified <paramref name="item"/> has any enrichments.
-    /// </summary>
-    /// <param name="item">The item to check for enrichments.</param>
-    /// <returns>
-    /// <see langword="true"/> if the item has enrichments; otherwise, <see langword="false"/>.
-    /// </returns>
-    public static bool HasEnrichments(Item item) => Enrichments.ContainsKey(item);
-
-    /// <summary>
-    /// Determines whether the specified <paramref name="item"/> is at the maximum number of enrichments.
-    /// </summary>
-    /// <param name="item">The item to check.</param>
-    /// <returns>
-    /// <see langword="true"/> if the item’s enrichment count is greater than or equal to 
-    /// <see cref="ContentCustomEnrichment.MaxEnrichments"/>; otherwise, <see langword="false"/>.
-    /// </returns>
-    public static bool IsAtMaxEnrichments(Item item)
-    {
-        if (!HasEnrichments(item)) return false;
-        return Enrichments[item].Count == item.GetOrAddCustomData<ContentCustomEnrichment>().MaxEnrichments;
-    }
-
-    /// <summary>
-    /// Determines whether the specified <paramref name="item"/> has an enrichment 
-    /// with the given <paramref name="id"/>.
-    /// </summary>
-    /// <param name="item">The item to check for the enrichment.</param>
-    /// <param name="id">The identifier of the enrichment to look for.</param>
-    /// <returns>
-    /// <see langword="true"/> if the enrichment with the specified <paramref name="id"/> exists; 
-    /// otherwise, <see langword="false"/>.
-    /// </returns>
-    public static bool HasEnrichment(Item item, string id) => item != null && Enrichments.ContainsKey(item) && Enrichments[item].Any(e => e?.id == id);
-
-    /// <summary>
-    /// Retrieves the enrichment with the specified <paramref name="id"/> from the given <paramref name="item"/>, otherwise returns null.
-    /// </summary>
-    /// <param name="item">The item to search for enrichments.</param>
-    /// <param name="id">The identifier of the enrichment to retrieve.</param>
-    /// <returns>
-    /// The <see cref="EnrichmentData"/> with the specified <paramref name="id"/>, 
-    /// or <see langword="null"/> if no enrichment is found.
-    /// </returns>
-    public static EnrichmentData GetEnrichment(Item item, string id) => Enrichments[item].FirstOrDefault(e => e.id == id);
-
-    /// <summary>
-    /// Attempts to retrieve an enrichment with the specified <paramref name="id"/> from the given <paramref name="item"/>.
-    /// </summary>
-    /// <param name="item">The item to search for enrichments.</param>
-    /// <param name="id">The identifier of the enrichment to retrieve.</param>
-    /// <param name="enrichment">
-    /// When this method returns <see langword="true"/>, contains the <see cref="EnrichmentData"/> 
-    /// with the specified <paramref name="id"/>; otherwise <see langword="null"/>.
-    /// </param>
-    /// <returns>
-    /// <see langword="true"/> if the enrichment was found; otherwise, <see langword="false"/>.
-    /// </returns>
-    public static bool TryGetEnrichment(Item item, string id, out EnrichmentData enrichment)
-    {
-        enrichment = null;
-
-        if (item == null || string.IsNullOrEmpty(id))
-        {
-            Debug.LogWarning($"[Enrichments] Item or id is null or empty!");
-            return false;
-        }
-
-        if (Enrichments.TryGetValue(item, out var list))
-        {
-            enrichment = list.Find(e => e.id == id);
-            return enrichment != null;
-        }
-
-        return false;
-    }
-
-    /// <summary>
-    /// Attempts to retrieve all enrichments associated with the given <paramref name="item"/>.
-    /// </summary>
-    /// <param name="item">The item to search for enrichments.</param>
-    /// <param name="enrichments">
-    /// When this method returns <see langword="true"/>, contains the list of <see cref="EnrichmentData"/> 
-    /// associated with the <paramref name="item"/>; otherwise <see langword="null"/>.
-    /// </param>
-    /// <returns>
-    /// <see langword="true"/> if the item has one or more enrichments; otherwise, <see langword="false"/>.
-    /// </returns>
-    public static bool TryGetEnrichments(Item item, out List<EnrichmentData> enrichments)
-    {
-        enrichments = null;
-
-        if (item == null)
-        {
-            Debug.LogWarning($"[Enrichments] Item is null!");
-            return false;
-        }
-
-        return Enrichments.TryGetValue(item, out enrichments);
-    }
+    #region Enrichment Data Handling
 
     /// <summary>
     /// Adds an enrichment to the specified <paramref name="item"/> by enrichment id.
@@ -412,8 +292,138 @@ public class EnrichmentManager : ThunderScript
         enrichments.Clear();
         Enrichments.Remove(item);
     }
+
+    #endregion
+
+    #region Helpers
+
+    /// <summary>
+    /// Internal helper to validate an item's enrichments within the main collection.
+    /// </summary>
+    /// <param name="item">The item to validate.</param>
+    /// <param name="enrichments">The collection of enrichments validated.</param>
+    public static void Validate(Item item, out List<EnrichmentData> enrichments)
+    {
+        if (!Enrichments.TryGetValue(item, out var list))
+        {
+            list = new List<EnrichmentData>();
+            Enrichments[item] = list;
+        }
+
+        enrichments = list;
+    }
+
+    public static void UpdateVersions(Item item, ContentCustomEnrichment contentEnrichment)
+    {
+        foreach (VersionUpdater versionUpdater in VersionUpdaters)
+            if (versionUpdater.Allowed(contentEnrichment)) versionUpdater.Update(item.data.id, contentEnrichment);
+    }
+
+    /// <summary>
+    /// Determines whether the specified <paramref name="item"/> has any enrichments.
+    /// </summary>
+    /// <param name="item">The item to check for enrichments.</param>
+    /// <returns>
+    /// <see langword="true"/> if the item has enrichments; otherwise, <see langword="false"/>.
+    /// </returns>
+    public static bool HasEnrichments(Item item) => Enrichments.ContainsKey(item);
+
+    /// <summary>
+    /// Determines whether the specified <paramref name="item"/> is at the maximum number of enrichments.
+    /// </summary>
+    /// <param name="item">The item to check.</param>
+    /// <returns>
+    /// <see langword="true"/> if the item’s enrichment count is greater than or equal to 
+    /// <see cref="ContentCustomEnrichment.MaxEnrichments"/>; otherwise, <see langword="false"/>.
+    /// </returns>
+    public static bool IsAtMaxEnrichments(Item item)
+    {
+        if (!HasEnrichments(item)) return false;
+        return Enrichments[item].Count == item.GetOrAddCustomData<ContentCustomEnrichment>().MaxEnrichments;
+    }
+
+    /// <summary>
+    /// Determines whether the specified <paramref name="item"/> has an enrichment 
+    /// with the given <paramref name="id"/>.
+    /// </summary>
+    /// <param name="item">The item to check for the enrichment.</param>
+    /// <param name="id">The identifier of the enrichment to look for.</param>
+    /// <returns>
+    /// <see langword="true"/> if the enrichment with the specified <paramref name="id"/> exists; 
+    /// otherwise, <see langword="false"/>.
+    /// </returns>
+    public static bool HasEnrichment(Item item, string id) => item != null && Enrichments.ContainsKey(item) && Enrichments[item].Any(e => e?.id == id);
+
+    /// <summary>
+    /// Retrieves the enrichment with the specified <paramref name="id"/> from the given <paramref name="item"/>, otherwise returns null.
+    /// </summary>
+    /// <param name="item">The item to search for enrichments.</param>
+    /// <param name="id">The identifier of the enrichment to retrieve.</param>
+    /// <returns>
+    /// The <see cref="EnrichmentData"/> with the specified <paramref name="id"/>, 
+    /// or <see langword="null"/> if no enrichment is found.
+    /// </returns>
+    public static EnrichmentData GetEnrichment(Item item, string id) => Enrichments[item].FirstOrDefault(e => e.id == id);
+
+    /// <summary>
+    /// Attempts to retrieve an enrichment with the specified <paramref name="id"/> from the given <paramref name="item"/>.
+    /// </summary>
+    /// <param name="item">The item to search for enrichments.</param>
+    /// <param name="id">The identifier of the enrichment to retrieve.</param>
+    /// <param name="enrichment">
+    /// When this method returns <see langword="true"/>, contains the <see cref="EnrichmentData"/> 
+    /// with the specified <paramref name="id"/>; otherwise <see langword="null"/>.
+    /// </param>
+    /// <returns>
+    /// <see langword="true"/> if the enrichment was found; otherwise, <see langword="false"/>.
+    /// </returns>
+    public static bool TryGetEnrichment(Item item, string id, out EnrichmentData enrichment)
+    {
+        enrichment = null;
+
+        if (item == null || string.IsNullOrEmpty(id))
+        {
+            Debug.LogWarning($"[Enrichments] Item or id is null or empty!");
+            return false;
+        }
+
+        if (Enrichments.TryGetValue(item, out var list))
+        {
+            enrichment = list.Find(e => e.id == id);
+            return enrichment != null;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Attempts to retrieve all enrichments associated with the given <paramref name="item"/>.
+    /// </summary>
+    /// <param name="item">The item to search for enrichments.</param>
+    /// <param name="enrichments">
+    /// When this method returns <see langword="true"/>, contains the list of <see cref="EnrichmentData"/> 
+    /// associated with the <paramref name="item"/>; otherwise <see langword="null"/>.
+    /// </param>
+    /// <returns>
+    /// <see langword="true"/> if the item has one or more enrichments; otherwise, <see langword="false"/>.
+    /// </returns>
+    public static bool TryGetEnrichments(Item item, out List<EnrichmentData> enrichments)
+    {
+        enrichments = null;
+
+        if (item == null)
+        {
+            Debug.LogWarning($"[Enrichments] Item is null!");
+            return false;
+        }
+
+        return Enrichments.TryGetValue(item, out enrichments);
+    }
+
+    #endregion
     
     public delegate void EnrichmentDelegate(Item item, EnrichmentData enrichmentData);
     
     public delegate void EnrichmentListDelegate(Item item, List<EnrichmentData> enrichments);
 }
+#endif

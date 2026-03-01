@@ -50,47 +50,33 @@ namespace Enrichments
         public ParticleSystem[] loopParticles;
         public ParticleSystem.MinMaxGradient[] loopOriginals;
 
+        #if !SDK
         public static void Create(EnrichmentOrb enrichmentOrb, Action<EnrichmentMessage> onComplete)
         {
             Catalog.LoadAssetAsync<GameObject>("Silk.Prefab.Enrichments.Message", o =>
             {
                 var obj = Instantiate(o, EnrichmentOrb.enrichmentRoot.transform);
                 EnrichmentMessage component = null;
-                switch (Common.IsWindows)
-                {
-                    case true:
-                        if (obj.TryGetComponent(out component))
-                        {
-                            component.enrichmentOrb = enrichmentOrb;
-                            component.InitializeVideoRendering();
-                            onComplete?.Invoke(component);
-                            return;
-                        }
+                component = obj.AddComponent<EnrichmentMessage>();
+                TextMeshPro[] textMeshPro = obj.GetComponentsInChildren<TextMeshPro>();
 
-                        Debug.Log($"[Enrichments] Failed to load enrichment message on prefab: {obj.name}, there is no EnrichmentMessage component attached!");
-                        break;
-                    case false:
-                        component = obj.AddComponent<EnrichmentMessage>();
-                        TextMeshPro[] textMeshPro = obj.GetComponentsInChildren<TextMeshPro>();
+                component.buttonRenderer = component.transform.GetChildByNameRecursive("Button").GetComponent<SpriteRenderer>();
+                component.videoRenderer = component.transform.GetChildByNameRecursive("VideoMesh").GetComponent<MeshRenderer>();
 
-                        component.buttonRenderer = component.transform.GetChildByNameRecursive("Button").GetComponent<SpriteRenderer>();
-                        component.videoRenderer = component.transform.GetChildByNameRecursive("VideoMesh").GetComponent<MeshRenderer>();
+                component.buyEffect = component.buttonRenderer.transform.GetChild(1).GetComponent<ParticleSystem>();
+                component.loopingEffect = component.buttonRenderer.transform.GetChild(0).GetComponent<ParticleSystem>();
+                component.videoPlayer = component.GetComponentInChildren<VideoPlayer>();
 
-                        component.buyEffect = component.buttonRenderer.transform.GetChild(1).GetComponent<ParticleSystem>();
-                        component.loopingEffect = component.buttonRenderer.transform.GetChild(0).GetComponent<ParticleSystem>();
-                        component.videoPlayer = component.GetComponentInChildren<VideoPlayer>();
+                component.costText = textMeshPro[4];
+                component.currentText = textMeshPro[0];
+                component.descriptionText = textMeshPro[3];
+                component.maxText = textMeshPro[1];
+                component.titleText = textMeshPro[2];
 
-                        component.costText = textMeshPro[4];
-                        component.currentText = textMeshPro[0];
-                        component.descriptionText = textMeshPro[3];
-                        component.maxText = textMeshPro[1];
-                        component.titleText = textMeshPro[2];
+                component.enrichmentOrb = enrichmentOrb;
+                component.InitializeVideoRendering();
+                onComplete?.Invoke(component);
 
-                        component.enrichmentOrb = enrichmentOrb;
-                        component.InitializeVideoRendering();
-                        onComplete?.Invoke(component);
-                        break;
-                }
             }, $"Enrichment Message");
         }
 
@@ -231,5 +217,6 @@ namespace Enrichments
             videoPlayer.Stop();
             isShown = false;
         }
+        #endif
     }
 }

@@ -1,17 +1,29 @@
+using System;
 using System.Linq;
 using Enrichments;
 using ThunderRoad;
 using UnityEngine;
 using UnityEngine.UI;
 
+namespace Enrichments;
+
 public class UIEnrichmentSlotHighlighter : ThunderBehaviour
 {
     private Creature creature;
+    
+    [NonSerialized]
     public Sprite sprite;
+    
+    [NonSerialized]
     public Sprite oldSprite;
+        
+    [NonSerialized]
     public bool leftActive;
+    
+    [NonSerialized]
     public bool rightActive;
 
+    #if !SDK
     public void Load(Creature creature)
     {
         this.creature = creature;
@@ -61,4 +73,5 @@ public class UIEnrichmentSlotHighlighter : ThunderBehaviour
 
         return null;
     }
+    #endif
 }

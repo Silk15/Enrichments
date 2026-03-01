@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using ThunderRoad;
@@ -7,12 +8,22 @@ namespace Enrichments;
 
 public class UIEnrichmentStat : ThunderBehaviour
 {
+    [NonSerialized]
     public Transform root;
+    
+    [NonSerialized]
     public List<UIEnrichment> uiEnrichments = new();
+    
+    [NonSerialized]
     public Sprite outlineSprite;
+    
+    [NonSerialized]
     public Sprite insideSprite;
+    
+    [NonSerialized]
     public Item item;
 
+    #if !SDK
     public void Load(Transform root, ItemData itemData, float offset, float scale, Item existingItem = null)
     {
         this.root = root;
@@ -66,4 +77,5 @@ public class UIEnrichmentStat : ThunderBehaviour
             return rightItem;
         return null;
     }
+    #endif
 }

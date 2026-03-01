@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using ThunderRoad;
@@ -9,25 +10,51 @@ namespace Enrichments;
 
 public class UIEnrichmentTierNode : ThunderBehaviour
 {
+    [NonSerialized]
     public List<EnrichmentOrb> enrichmentOrbs = new();
+    
+    [NonSerialized]
     public List<EnrichmentData> enrichments = new();
     
+    [NonSerialized]
     public ExclusionLineRenderer exclusionLineRenderer;
+    
+    [NonSerialized]
     public UIEnrichmentCore uiEnrichmentCore;
+    
+    [NonSerialized]
     public LineRenderer linkLineRenderer;
+    
+    [NonSerialized]
     public EffectInstance effectInstance;
+    
+    [NonSerialized]
     public SkillTreeData skillTreeData;
+    
+    [NonSerialized]
     public ItemMagnet itemMagnet;
+    
+    [NonSerialized]
     public Item heldCrystal;
-
+    
+    [NonSerialized]
     public GameObject magnetObject;
+    
+    [NonSerialized]
     public bool isGlowing;
+    
+    [NonSerialized]
     public bool isShown;
+    
+    [NonSerialized]
     public bool vfxShown;
+    
+    [NonSerialized]
     public Side lastSide;
 
+    [NonSerialized]
     public Item fakeItem;
-
+    #if !SDK
     public override ManagedLoops EnabledManagedLoops => ManagedLoops.Update | ManagedLoops.FixedUpdate;
 
     public void Init(UIEnrichmentCore uiEnrichmentCore, SkillTreeData skillTreeData, List<EnrichmentData> enrichments)
@@ -220,4 +247,5 @@ public class UIEnrichmentTierNode : ThunderBehaviour
         
         GameManager.local.StartCoroutine(uiEnrichmentCore.HideCoroutine(enrichmentOrbs, exclusionLineRenderer));
     }
+    #endif
 }

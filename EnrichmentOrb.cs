@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using Newtonsoft.Json;
 using ThunderRoad;
 using UnityEngine;
 using UnityEngine.Serialization;
@@ -40,8 +41,10 @@ namespace Enrichments
         public delegate void OnSpawn(EnrichmentOrb enrichmentOrb, EventTime eventTime);
         public delegate void OnDespawn(EnrichmentOrb enrichmentOrb);
 
+        [JsonIgnore]
         public bool Active { get; private set; }
 
+        #if !SDK
         /// <summary>
         /// Attempts to generate a set amount of enrichments and pool them for later use.
         /// </summary>
@@ -83,34 +86,21 @@ namespace Enrichments
         {
             GameObject prefab = Instantiate(enrichmentPrefab);
             EnrichmentOrb orb = null;
-            switch (Common.IsWindows)
-            {
-                case true:
-                    if (!prefab.TryGetComponent(out orb))
-                    {
-                        Debug.Log($"[Enrichments] Failed to load prefab, gameObject ({orb.name}) does not contain an [{nameof(EnrichmentOrb)}] component.");
-                        return null;
-                    }
-                    break;
-                
-                case false:
-                    orb = prefab.gameObject.AddComponent<EnrichmentOrb>();
-            
-                    orb.rigidbody = prefab.GetComponent<Rigidbody>();
-                    orb.handle = prefab.GetComponentInChildren<Handle>();
-                    orb.particleSystem = prefab.GetComponentInChildren<ParticleSystem>();
-                    orb.spriteRenderer = prefab.GetComponentInChildren<SpriteRenderer>();
-            
-                    var audio = prefab.GetComponentsInChildren<AudioSource>();
-                    orb.grabAudioSource = audio[0];
-                    orb.ungrabAudioSource = audio[1];
-                    break;
-            }
-            
+            orb = prefab.gameObject.AddComponent<EnrichmentOrb>();
+
+            orb.rigidbody = prefab.GetComponent<Rigidbody>();
+            orb.handle = prefab.GetComponentInChildren<Handle>();
+            orb.particleSystem = prefab.GetComponentInChildren<ParticleSystem>();
+            orb.spriteRenderer = prefab.GetComponentInChildren<SpriteRenderer>();
+
+            var audio = prefab.GetComponentsInChildren<AudioSource>();
+            orb.grabAudioSource = audio[0];
+            orb.ungrabAudioSource = audio[1];
+
             orb.enableEffectData = Catalog.GetData<EffectData>(orb.enableEffectId);
             orb.disableEffectData = Catalog.GetData<EffectData>(orb.disableEffectId);
             orb.enableLoopEffectData = Catalog.GetData<EffectData>(orb.enableLoopEffectId);
-            
+
             EnrichmentMessage.Create(orb, message =>
             {
                 orb.enrichmentMessage = message;
@@ -119,7 +109,7 @@ namespace Enrichments
             });
             return orb;
         }
-        
+
         private static void GeneratePools(int count, Stopwatch stopwatch) => Debug.Log($"[Enrichments] Pooled {count} enrichment orbs in {stopwatch.Elapsed.TotalMilliseconds} ms");
 
         private static EnrichmentOrb Get(Vector3 position, Quaternion rotation)
@@ -394,5 +384,6 @@ namespace Enrichments
             playerHand.controlHand.StopHapticLoop(this);
             isRunning = false;
         }
+        #endif
     }
 }

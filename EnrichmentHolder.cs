@@ -1,5 +1,7 @@
-﻿using ThunderRoad;
+﻿using System;
+using ThunderRoad;
 using ThunderRoad.DebugViz;
+using TriInspector;
 using UnityEngine;
 
 namespace Enrichments;
@@ -9,10 +11,18 @@ namespace Enrichments;
 /// </summary>
 public class EnrichmentHolder : ThunderBehaviour
 {
+    [NonSerialized]
     public EnrichmentData linkedData;
+    
+    [Dropdown(nameof(GetAllEnrichmentID))]
     public string enrichmentId;
+    
+    [NonSerialized]
     public Holder linkedHolder;
 
+    public TriDropdownList<string> GetAllEnrichmentID() => Catalog.GetDropdownAllID<EnrichmentData>();
+
+    #if !SDK
     public override ManagedLoops EnabledManagedLoops => ManagedLoops.Update;
 
     public void Load(string enrichmentId, EnrichmentData linkedData, Holder linkedHolder)
@@ -54,4 +64,5 @@ public class EnrichmentHolder : ThunderBehaviour
             if (item.holder != linkedHolder)
                 VizManager.AddOrUpdateViz(this, $"enrichmentholder{item.data.id}{linkedHolder.items.IndexOf(item)}", Color.blue, VizManager.VizType.Lines, new[] { item.transform.position, linkedHolder.transform.position });
     }
+    #endif
 }

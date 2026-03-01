@@ -1,3 +1,4 @@
+#if !SDK 
 using System.Collections.Generic;
 using Newtonsoft.Json;
 using ThunderRoad;
@@ -63,3 +64,4 @@ namespace Enrichments
         public bool Has(string id) => Enrichments.Contains(id);
     }
 }
+#endif

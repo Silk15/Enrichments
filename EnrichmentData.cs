@@ -5,6 +5,7 @@ using System.Linq;
 using Enrichments.Core;
 using Newtonsoft.Json;
 using ThunderRoad;
+using TriInspector;
 using UnityEngine;
 using UnityEngine.Video;
 
@@ -41,6 +42,8 @@ namespace Enrichments
 
         [NonSerialized]
         public SkillTreeData primarySkillTree;
+        
+        [NonSerialized]
         public SkillTreeData secondarySkillTree;
 
         [NonSerialized]
@@ -52,6 +55,15 @@ namespace Enrichments
         [NonSerialized]
         private Item item;
 
+        public TriDropdownList<string> GetAllEnrichmentID() => Catalog.GetDropdownAllID<EnrichmentData>();
+        
+        public TriDropdownList<string> GetAllSpellID() => Catalog.GetDropdownAllID<SpellData>();
+        
+        public TriDropdownList<string> GetAllStatusID() => Catalog.GetDropdownAllID(Category.Status);
+        
+        public TriDropdownList<string> GetAllEffectID() => Catalog.GetDropdownAllID(Category.Effect);
+
+        #if !SDK
         [NonSerialized]
         private ContentCustomEnrichment contentCustomEnrichment;
 
@@ -251,5 +263,6 @@ namespace Enrichments
         /// </summary>
         /// <returns></returns>
         public string GetDescription() => LocalizationManager.Instance.TryGetLocalization("Enrichments", description);
+        #endif
     }
 }

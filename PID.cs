@@ -1,4 +1,5 @@
-﻿using ThunderRoad;
+﻿#if !SDK
+using ThunderRoad;
 using UnityEngine;
 
 public class FloatPID
@@ -133,3 +134,4 @@ public class RBPID
         rb.AddTorque(dampingTorque, ForceMode.Acceleration);
     }
 }
+#endif

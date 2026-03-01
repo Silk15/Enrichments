@@ -16,7 +16,7 @@
     </PropertyGroup>
     <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
         <DebugSymbols>true</DebugSymbols>
-        <DebugType>portable</DebugType>
+        <DebugType>embedded</DebugType>
         <Optimize>false</Optimize>
         <OutputPath>bin\Debug\</OutputPath>
         <DefineConstants>DEBUG;TRACE</DefineConstants>
@@ -27,7 +27,7 @@
     </PropertyGroup>
     <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
         <PlatformTarget>AnyCPU</PlatformTarget>
-        <DebugType>pdbonly</DebugType>
+        <DebugType>embedded</DebugType>
         <Optimize>true</Optimize>
         <OutputPath>bin\Release\</OutputPath>
         <DefineConstants>TRACE</DefineConstants>
@@ -36,22 +36,31 @@
         <DocumentationFile>bin\Release\$(AssemblyName).xml</DocumentationFile>
         <NoWarn>1591</NoWarn>
     </PropertyGroup>
+    <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'SDK|AnyCPU' ">
+        <PlatformTarget>AnyCPU</PlatformTarget>
+        <DebugType>none</DebugType>
+        <Optimize>true</Optimize>
+        <OutputPath>bin/SDK</OutputPath>
+        <DefineConstants>TRACE;SDK</DefineConstants>
+        <ErrorReport>prompt</ErrorReport>
+        <WarningLevel>4</WarningLevel>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(Configuration)' != 'SDK'">
+    </PropertyGroup>
     <ItemGroup>
-        <Reference Include="Sirenix.OdinInspector.Attributes">
-          <HintPath>..\..\..\..\SteamLibrary\steamapps\common\Blade &amp; Sorcery\BladeAndSorcery_Data\Managed\Sirenix.OdinInspector.Attributes.dll</HintPath>
-        </Reference>
         <Reference Include="System"/>
         <Reference Include="System.Core"/>
         <Reference Include="System.Data"/>
         <Reference Include="System.Xml"/>
-        <Reference Include="IngameDebugConsole.Runtime">
-            <HintPath>$(BladeAndSorceryPath)\BladeAndSorcery_Data\Managed\IngameDebugConsole.Runtime.dll</HintPath>
-        </Reference>
         <Reference Include="Newtonsoft.Json">
             <HintPath>$(BladeAndSorceryPath)\BladeAndSorcery_Data\Managed\Newtonsoft.Json.dll</HintPath>
         </Reference>
         <Reference Include="ThunderRoad">
           <HintPath>$(BladeAndSorceryPath)\BladeAndSorcery_Data\Managed\ThunderRoad.dll</HintPath>
+        </Reference>
+        <Reference Include="TriInspector">
+          <HintPath>..\..\..\..\SteamLibrary\steamapps\common\Blade &amp; Sorcery\BladeAndSorcery_Data\Managed\TriInspector.dll</HintPath>
         </Reference>
         <Reference Include="Unity.ResourceManager">
           <HintPath>$(BladeAndSorceryPath)\BladeAndSorcery_Data\Managed\Unity.ResourceManager.dll</HintPath>
@@ -114,11 +123,6 @@
         <Copy
                 SourceFiles="$(TargetDir)$(TargetName).dll"
                 DestinationFiles="$(BladeAndSorceryPath)\BladeAndSorcery_Data\StreamingAssets\Mods\$(ProjectName)\$(TargetFileName)"
-                OverwriteReadOnlyFiles="true" />
-
-        <Copy
-                SourceFiles="$(TargetDir)$(TargetName).pdb"
-                DestinationFiles="$(BladeAndSorceryPath)\BladeAndSorcery_Data\StreamingAssets\Mods\$(ProjectName)\$(TargetName).pdb"
                 OverwriteReadOnlyFiles="true" />
 
         <Copy
